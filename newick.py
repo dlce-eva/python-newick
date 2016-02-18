@@ -16,35 +16,56 @@ class Node(object):
         self.length = length
         self.descendants = descendants or []
 
-    @staticmethod
-    def from_string(s):
-        return _parse_node(s)
-
-    def to_string(self):
+    @property
+    def newick(self):
         label = self.name or ''
         if self.length:
             label += ':' + self.length
-        descendants = ','.join([n.to_string() for n in self.descendants])
+        descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
         return descendants + label
 
-    def walk(self, leafs_only=False):
-        if not leafs_only or not self.descendants:
-            yield self
-        for node in self.descendants:
-            for n in node.walk(leafs_only=leafs_only):
+    @property
+    def is_leaf(self):
+        return not bool(self.descendants)
+
+    def walk(self, mode=None):
+        if mode == 'postorder':
+            for n in self._postorder():
                 yield n
+        else:  # default to a breadth-first search
+            yield self
+            for node in self.descendants:
+                for n in node.walk():
+                    yield n
+
+    def _postorder(self):
+        stack = [self]
+        descendant_map = {id(node): [n for n in node.descendants] for node in self.walk()}
+
+        while stack:
+            node = stack[-1]
+            descendants = descendant_map[id(node)]
+
+            # if we are at a leave-node, we remove the item from the stack
+            if not descendants:
+                stack.pop()
+                yield node
+                if stack:
+                    descendant_map[id(stack[-1])].pop(0)
+            else:
+                stack.append(descendants[0])
 
 
 def loads(s):
-    return [Node.from_string(ss.strip()) for ss in s.split(';') if ss.strip()]
+    return [parse_node(ss.strip()) for ss in s.split(';') if ss.strip()]
 
 
 def dumps(trees):
     if isinstance(trees, Node):
         trees = [trees]
-    return ';\n'.join([tree.to_string() for tree in trees]) + ';'
+    return ';\n'.join([tree.newick for tree in trees]) + ';'
 
 
 def load(fp):
@@ -82,7 +103,7 @@ def _parse_siblings(s):
     # trick to remove special-case of trailing chars
     for c in (s + ","):
         if c == "," and bracket_level == 0:
-            yield _parse_node("".join(current))
+            yield parse_node("".join(current))
             current = []
         else:
             if c == "(":
@@ -92,7 +113,7 @@ def _parse_siblings(s):
             current.append(c)
 
 
-def _parse_node(s):
+def parse_node(s):
     s = s.strip()
     parts = s.split(')')
     if len(parts) == 1:

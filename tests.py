@@ -11,16 +11,29 @@ class Tests(TestCase):
     def test_read_write(self):
         trees = read(os.path.join(
             os.path.dirname(__file__), 'fixtures', 'tree-glottolog-newick.txt'))
-        self.assertEqual(len(trees[0].descendants), 391)
+        descs = [len(tree.descendants) for tree in trees]
+        # The bookkeeping family has 391 languages
+        self.assertEqual(descs[0], 391)
         tmp = mktemp()
         write(trees, tmp)
         assert os.path.exists(tmp)
-        self.assertEqual(len(read(tmp)[0].descendants), 391)
+        self.assertEqual([len(tree.descendants) for tree in read(tmp)], descs)
         os.remove(tmp)
 
     def test_Node(self):
         with self.assertRaises(ValueError):
             Node(name='A)')
+
+        root = loads('(A,B,(C,D)E)F;')[0]
+        self.assertEqual(
+            [n.name for n in root.walk()],
+            ['F', 'A', 'B', 'E', 'C', 'D'])
+        self.assertEqual(
+            [n.name for n in root.walk() if n.is_leaf],
+            ['A', 'B', 'C', 'D'])
+        self.assertEqual(
+            [n.name for n in root.walk(mode='postorder')],
+            ['A', 'B', 'C', 'D', 'E', 'F'])
 
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
@@ -41,9 +54,7 @@ class Tests(TestCase):
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('(A,B,(C,D)E)Fäß;')[0]
-        self.assertEqual([n.name for n in root.walk()], ['Fäß', 'A', 'B', 'E', 'C', 'D'])
-        self.assertEqual(
-            [n.name for n in root.walk(leafs_only=True)], ['A', 'B', 'C', 'D'])
+        self.assertEqual(root.name, 'Fäß')
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('(:0.1,:0.2,(:0.3,:0.4):0.5);')[0]
