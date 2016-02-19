@@ -1,4 +1,9 @@
 # coding: utf8
+"""
+Functionality to read and write the Newick serialization format for trees.
+
+.. seealso:: https://en.wikipedia.org/wiki/Newick_format
+"""
 from __future__ import unicode_literals
 import io
 
@@ -7,6 +12,12 @@ RESERVED_PUNCTUATION = ':;,()'
 
 
 class Node(object):
+    """
+    A Node may be a tree, a subtree or a leaf.
+
+    A Node has optional name and length (from parent) and a (possibly empty) list of
+    descendants.
+    """
     def __init__(self, name=None, length=None, descendants=None):
         for char in RESERVED_PUNCTUATION:
             if (name and char in name) or (length and char in length):
@@ -18,6 +29,7 @@ class Node(object):
 
     @property
     def newick(self):
+        """The representation of the Node in Newick format."""
         label = self.name or ''
         if self.length:
             label += ':' + self.length
@@ -31,6 +43,16 @@ class Node(object):
         return not bool(self.descendants)
 
     def walk(self, mode=None):
+        """
+        Traverses the (sub)tree rooted at self, yielding each visited Node.
+
+        .. seealso:: https://en.wikipedia.org/wiki/Tree_traversal
+
+        :param mode: Specifies the algorithm to use when traversing the subtree rooted \
+        at self. `None` for breadth-first, `'postorder'` for post-order depth-first \
+        search.
+        :return: Generator of the visited Nodes.
+        """
         if mode == 'postorder':
             for n in self._postorder():
                 yield n
@@ -59,10 +81,22 @@ class Node(object):
 
 
 def loads(s):
+    """
+    Load a list of trees from a Newick formatted string.
+
+    :param s: Newick formatted string.
+    :return: List of Node objects.
+    """
     return [parse_node(ss.strip()) for ss in s.split(';') if ss.strip()]
 
 
 def dumps(trees):
+    """
+    Serialize a list of trees in Newick format.
+
+    :param trees: List of Node objects or a single Node object.
+    :return: Newick formatted string.
+    """
     if isinstance(trees, Node):
         trees = [trees]
     return ';\n'.join([tree.newick for tree in trees]) + ';'
