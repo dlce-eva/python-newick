@@ -18,7 +18,7 @@ class Node(object):
     A Node has optional name and length (from parent) and a (possibly empty) list of
     descendants.
     """
-    def __init__(self, name=None, length=None, descendants=None):
+    def __init__(self, name=None, length=None, descendants=None, ancestor=None):
         for char in RESERVED_PUNCTUATION:
             if (name and char in name) or (length and char in length):
                 raise ValueError(
@@ -26,6 +26,9 @@ class Node(object):
         self.name = name
         self.length = length
         self.descendants = descendants or []
+        for descendant in self.descendants:
+            descendant.ancestor = self
+        self.ancestor = ancestor or None
 
     @property
     def newick(self):
@@ -147,7 +150,7 @@ def _parse_siblings(s):
             current.append(c)
 
 
-def parse_node(s):
+def parse_node(s, ancestor=None):
     s = s.strip()
     parts = s.split(')')
     if len(parts) == 1:
@@ -157,4 +160,5 @@ def parse_node(s):
             raise ValueError('unmatched braces %s' % parts[0][:100])
         descendants, label = list(_parse_siblings(')'.join(parts[:-1])[1:])), parts[-1]
     name, length = _parse_name_and_length(label)
-    return Node(name=name, length=length, descendants=descendants)
+    return Node(name=name, length=length, descendants=descendants,
+            ancestor=ancestor)
