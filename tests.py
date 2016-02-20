@@ -4,7 +4,7 @@ from unittest import TestCase
 import os
 from tempfile import mktemp
 
-from newick import loads, dumps, Node, read, write
+from newick import loads, dumps, Node, read, write, parse_node
 
 
 class Tests(TestCase):
@@ -37,9 +37,16 @@ class Tests(TestCase):
         self.assertEqual(root.ancestor, None)
         self.assertEqual(root.descendants[0].ancestor, root)
         root = loads('(((a,b),(c,d)),e);')[0]
-        self.assertEqual([n.ancestor.newick for n in root.walk()
-            if n.ancestor], ['(((a,b),(c,d)),e)', '((a,b),(c,d))', '(a,b)', 
-                '(a,b)', '((a,b),(c,d))', '(c,d)', '(c,d)',
+        self.assertEqual(
+            [n.ancestor.newick for n in root.walk() if n.ancestor],
+            [
+                '(((a,b),(c,d)),e)',
+                '((a,b),(c,d))',
+                '(a,b)',
+                '(a,b)',
+                '((a,b),(c,d))',
+                '(c,d)',
+                '(c,d)',
                 '(((a,b),(c,d)),e)'])
 
     def test_loads(self):
@@ -83,3 +90,18 @@ class Tests(TestCase):
             '((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;',
         ]:
             self.assertEqual(ex, dumps(loads(ex)[0]))
+
+    def test_clone(self):
+        """
+        This test illustrates how a tree can be assembled programmatically.
+        """
+        newick = '(A,B,(C,D)E)F'
+        tree1 = parse_node(newick)
+
+        def clone_node(n):
+            c = Node(name=n.name)
+            for nn in n.descendants:
+                c.add_descendant(clone_node(nn))
+            return c
+
+        self.assertEqual(clone_node(tree1).newick, newick)
