@@ -34,6 +34,13 @@ class Tests(TestCase):
         self.assertEqual(
             [n.name for n in root.walk(mode='postorder')],
             ['A', 'B', 'C', 'D', 'E', 'F'])
+        self.assertEqual(root.ancestor, None)
+        self.assertEqual(root.descendants[0].ancestor, root)
+        root = loads('(((a,b),(c,d)),e);')[0]
+        self.assertEqual([n.ancestor.newick for n in root.walk()
+            if n.ancestor], ['(((a,b),(c,d)),e)', '((a,b),(c,d))', '(a,b)', 
+                '(a,b)', '((a,b),(c,d))', '(c,d)', '(c,d)',
+                '(((a,b),(c,d)),e)'])
 
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
