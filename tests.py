@@ -60,7 +60,7 @@ class Tests(TestCase):
 
         root = loads('(,,(,));')[0]
         self.assertIsNone(root.name)
-        self.assertIsNone(root.descendants[0].length)
+        self.assertEqual(root.descendants[0].length, 0.0)
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('(A,B,(C,D));')[0]
@@ -73,12 +73,12 @@ class Tests(TestCase):
 
         root = loads('(:0.1,:0.2,(:0.3,:0.4):0.5);')[0]
         self.assertIsNone(root.name)
-        self.assertEqual(root.descendants[0].length, '0.1')
+        self.assertEqual(root.descendants[0].length, 0.1)
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         self.assertEqual(root.name, 'A')
-        self.assertEqual(root.descendants[-1].length, '0.1')
+        self.assertEqual(root.descendants[-1].length, 0.1)
         self.assertEqual(len(root.descendants), 1)
 
     def test_dumps(self, *trees):

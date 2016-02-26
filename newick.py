@@ -9,7 +9,7 @@ import io
 
 
 RESERVED_PUNCTUATION = ':;,()'
-
+length_parser = lambda x: float(x or 0.0)
 
 class Node(object):
     """
@@ -24,7 +24,8 @@ class Node(object):
                 raise ValueError(
                     'Node names or branch lengths must not contain "%s"' % char)
         self.name = name
-        self.length = length
+        self.s_length = length
+        self.length = length_parser(length)
         self.descendants = []
         self.ancestor = None
 
@@ -43,8 +44,8 @@ class Node(object):
     def newick(self):
         """The representation of the Node in Newick format."""
         label = self.name or ''
-        if self.length:
-            label += ':' + self.length
+        if self.s_length:
+            label += ':' + self.s_length
         descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
