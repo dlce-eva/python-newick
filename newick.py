@@ -35,7 +35,10 @@ class Node(object):
 
     @length.setter
     def length(self, l):
-        self._length = length_formatter(l)
+        if l is None:
+            self._length = l
+        else:
+            self._length = length_formatter(l)
 
     @classmethod
     def create(cls, name=None, length=None, descendants=None):
