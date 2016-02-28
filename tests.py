@@ -112,6 +112,18 @@ class Tests(TestCase):
         nameless = dumps(tree)
         self.assertEqual(nameless, '((:0.2,(:0.3,:0.4):0.5):0.1);')
 
+    def test_internal_name_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        tree.remove_internal_names()
+        nameless = dumps(tree)
+        self.assertEqual(nameless, '((B:0.2,(C:0.3,D:0.4):0.5):0.1);')
+
+    def test_leaf_name_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        tree.remove_leaf_names()
+        nameless = dumps(tree)
+        self.assertEqual(nameless, '((:0.2,(:0.3,:0.4)E:0.5)F:0.1)A;')
+
     def test_length_removal(self):
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         tree.remove_lengths()

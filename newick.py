@@ -98,6 +98,22 @@ class Node(object):
         for n in self.walk():
             n.name = None
 
+    def remove_internal_names(self):
+        """
+        Set the name of all non-leaf nodes in the subtree to None.
+        """
+        for n in self.walk():
+            if not n.is_leaf:
+                n.name = None
+
+    def remove_leaf_names(self):
+        """
+        Set the name of all leaf nodes in the subtree to None.
+        """
+        for n in self.walk():
+            if n.is_leaf:
+                n.name = None
+
     def remove_lengths(self):
         """
         Set the length of all nodes in the subtree to None.
