@@ -105,3 +105,22 @@ class Tests(TestCase):
             return c
 
         self.assertEqual(clone_node(tree1).newick, newick)
+
+    def test_name_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        tree.remove_names()
+        nameless = dumps(tree)
+        self.assertEqual(nameless, '((:0.2,(:0.3,:0.4):0.5):0.1);')
+
+    def test_length_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        tree.remove_lengths()
+        nameless = dumps(tree)
+        self.assertEqual(nameless, '((B,(C,D)E)F)A;')
+
+    def test_all_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        tree.remove_names()
+        tree.remove_lengths()
+        topology_only = dumps(tree)
+        self.assertEqual(topology_only, '((,(,)));')

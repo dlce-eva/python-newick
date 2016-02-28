@@ -91,6 +91,20 @@ class Node(object):
             else:
                 stack.append(descendants[0])
 
+    def remove_names(self):
+        """
+        Set the name of all nodes in the subtree to None.
+        """
+        for n in self.walk():
+            n.name = None
+
+    def remove_lengths(self):
+        """
+        Set the length of all nodes in the subtree to None.
+        """
+        for n in self.walk():
+            n.length = None
+
 
 def loads(s):
     """
