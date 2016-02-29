@@ -9,7 +9,8 @@ import io
 
 
 RESERVED_PUNCTUATION = ':;,()'
-
+length_parser = lambda x: float(x or 0.0)
+length_formatter = str
 
 class Node(object):
     """
@@ -24,9 +25,20 @@ class Node(object):
                 raise ValueError(
                     'Node names or branch lengths must not contain "%s"' % char)
         self.name = name
-        self.length = length
+        self._length = length
         self.descendants = []
         self.ancestor = None
+
+    @property
+    def length(self):
+        return length_parser(self._length)
+
+    @length.setter
+    def length(self, l):
+        if l is None:
+            self._length = l
+        else:
+            self._length = length_formatter(l)
 
     @classmethod
     def create(cls, name=None, length=None, descendants=None):
@@ -43,8 +55,8 @@ class Node(object):
     def newick(self):
         """The representation of the Node in Newick format."""
         label = self.name or ''
-        if self.length:
-            label += ':' + self.length
+        if self._length:
+            label += ':' + self._length
         descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
@@ -53,6 +65,10 @@ class Node(object):
     @property
     def is_leaf(self):
         return not bool(self.descendants)
+
+    @property
+    def is_binary(self):
+        return all([len(n.descendants) in (0,2) for n in self.walk()])
 
     def walk(self, mode=None):
         """
@@ -91,6 +107,79 @@ class Node(object):
             else:
                 stack.append(descendants[0])
 
+    def get_leaves(self):
+        """
+        Get all the leaf nodes of the subtree descending from this node.
+
+        :return: List of Nodes with no descendants.
+        """
+        return [n for n in self.walk() if n.is_leaf]
+
+    def get_leaf_names(self):
+        """
+        Get the names of all the leaf nodes of the subtree descending from
+        this node.
+
+        :return: List of names of Nodes with no descendants.
+        """
+        return [n.name for n in self.get_leaves()]
+
+    def prune(self, leaves, inverse=False):
+        """
+        Remove all those nodes in the specified list, or if inverse=True,
+        remove all those nodes not in the specified list.  The specified nodes
+        must be leaves
+
+        :param nodes: A list of Node objects
+        :param inverse: Specifies whether to remove nodes in the list or not\
+                in the list.
+        """
+        if not all([n.is_leaf for n in leaves]):
+            raise ValueError("prune only accepts leaf nodes")
+        for n in self.walk(mode="postorder"):
+            if (not inverse and n in leaves) or \
+                    (inverse and n.is_leaf and n not in leaves):
+                n.ancestor.descendants.remove(n)
+
+    def prune_by_names(self, leaf_names, inverse=False):
+        """
+        Perform an (inverse) prune, with leaves specified by name.
+        :param node_names: A list of leaaf Node names (strings)
+        :param inverse: Specifies whether to remove nodes in the list or not\
+                in the list.
+        """
+        nodes = [l for l in self.walk() if l.name in leaf_names]
+        self.prune(nodes, inverse)
+
+    def remove_redundant_nodes(self, preserve_lengths=True):
+        """
+        Remove all nodes which have only a single child, and attach their
+        grandchildren to their parent.  The resulting tree has the minimum
+        number of internal nodes required for the number of leaves.
+        :param preserve_lengths: If true, branch lengths of removed nodes are \
+        added to those of their children.
+        """
+        for n in self.walk(mode="preorder"):
+            while len(n.descendants) == 1:
+                only_child = n.descendants.pop()
+                for grandchild in only_child.descendants:
+                    n.add_descendant(grandchild)
+                    if preserve_lengths:
+                        grandchild.length += only_child.length
+
+    def resolve_polytomies(self):
+        """
+        Insert additional nodes with length=0 into the subtree in such a way
+        that all non-leaf nodes have only 2 descendants, i.e. the tree becomes
+        a fully resolved binary tree.
+        """
+        for n in self.walk():
+            if len(n.descendants) > 2:
+                new = Node(length=0.0)
+                while len(n.descendants) > 1:
+                    new.add_descendant(n.descendants.pop())
+                n.descendants.append(new)
+        assert self.is_binary
 
 def loads(s):
     """

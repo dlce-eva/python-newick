@@ -60,7 +60,7 @@ class Tests(TestCase):
 
         root = loads('(,,(,));')[0]
         self.assertIsNone(root.name)
-        self.assertIsNone(root.descendants[0].length)
+        self.assertEqual(root.descendants[0].length, 0.0)
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('(A,B,(C,D));')[0]
@@ -73,12 +73,12 @@ class Tests(TestCase):
 
         root = loads('(:0.1,:0.2,(:0.3,:0.4):0.5);')[0]
         self.assertIsNone(root.name)
-        self.assertEqual(root.descendants[0].length, '0.1')
+        self.assertEqual(root.descendants[0].length, 0.1)
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         self.assertEqual(root.name, 'A')
-        self.assertEqual(root.descendants[-1].length, '0.1')
+        self.assertEqual(root.descendants[-1].length, 0.1)
         self.assertEqual(len(root.descendants), 1)
 
     def test_dumps(self, *trees):
@@ -105,3 +105,38 @@ class Tests(TestCase):
             return c
 
         self.assertEqual(clone_node(tree1).newick, newick)
+
+    def test_leaf_functions(self):
+
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        leaf_names = set(tree.get_leaf_names())
+        true_names = set(["B","C","D"])
+        self.assertEqual(leaf_names, true_names)
+
+    def test_prune(self):
+
+        tree = loads('(A,((B,C),(D,E)))')[0]
+        leaves = set(tree.get_leaf_names())
+        prune_nodes = set(["A","C", "E"])
+        tree.prune_by_names(prune_nodes)
+        self.assertEqual(set(tree.get_leaf_names()), leaves - prune_nodes)
+        tree = loads('((A,B),((C,D),(E,F)))')[0]
+        tree.prune_by_names(prune_nodes, inverse=True)
+        self.assertEqual(set(tree.get_leaf_names()), prune_nodes)
+
+    def test_bad_prune(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        self.assertRaises(ValueError, tree.prune_by_names, ['E'])
+
+    def test_redundant_node_removal(self):
+        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
+        self.assertEqual(len(tree.descendants), 1)
+        tree.remove_redundant_nodes()
+        self.assertFalse(any([len(n.descendants)==1 for n in tree.walk()]))
+
+    def test_polytomy_resolution(self):
+
+        tree = loads('(A,B,(C,D,(E,F)))')[0]
+        self.assertFalse(tree.is_binary)
+        tree.resolve_polytomies()
+        self.assertTrue(tree.is_binary)
