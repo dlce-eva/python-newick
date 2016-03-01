@@ -49,6 +49,13 @@ class Tests(TestCase):
                 '(c,d)',
                 '(((a,b),(c,d)),e)'])
 
+    def test_Node_custom_length(self):
+        root = Node.create(length='1e2', length_parser=lambda l: l + 'i')
+        self.assertEqual(root.length, '1e2i')
+        root = Node.create(length_formatter=lambda l: 5)
+        root.length = 10
+        self.assertAlmostEqual(root.length, 5)
+
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
 
@@ -110,14 +117,14 @@ class Tests(TestCase):
 
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         leaf_names = set(tree.get_leaf_names())
-        true_names = set(["B","C","D"])
+        true_names = set(["B", "C", "D"])
         self.assertEqual(leaf_names, true_names)
 
     def test_prune(self):
 
         tree = loads('(A,((B,C),(D,E)))')[0]
         leaves = set(tree.get_leaf_names())
-        prune_nodes = set(["A","C", "E"])
+        prune_nodes = set(["A", "C", "E"])
         tree.prune_by_names(prune_nodes)
         self.assertEqual(set(tree.get_leaf_names()), leaves - prune_nodes)
         tree = loads('((A,B),((C,D),(E,F)))')[0]
@@ -132,7 +139,7 @@ class Tests(TestCase):
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         self.assertEqual(len(tree.descendants), 1)
         tree.remove_redundant_nodes()
-        self.assertFalse(any([len(n.descendants)==1 for n in tree.walk()]))
+        self.assertFalse(any([len(n.descendants) == 1 for n in tree.walk()]))
 
     def test_polytomy_resolution(self):
 

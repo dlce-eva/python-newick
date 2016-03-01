@@ -9,8 +9,15 @@ import io
 
 
 RESERVED_PUNCTUATION = ':;,()'
-length_parser = lambda x: float(x or 0.0)
-length_formatter = str
+
+
+def length_parser(x):
+    return float(x or 0.0)
+
+
+def length_formatter(x):
+    return '%s' % x
+
 
 class Node(object):
     """
@@ -19,7 +26,15 @@ class Node(object):
     A Node has optional name and length (from parent) and a (possibly empty) list of
     descendants.
     """
-    def __init__(self, name=None, length=None):
+    def __init__(self, name=None, length=None, **kw):
+        """
+        :param name: Node label.
+        :param length: Branch length from the new node to its parent.
+        :param kw: Recognized keyword arguments:\
+            `length_parser`: Custom parser for the `length` attribute of a Node.\
+            `length_formatter`: Custom formatter for the branch length when formatting a\
+            Node as Newick string.
+        """
         for char in RESERVED_PUNCTUATION:
             if (name and char in name) or (length and char in length):
                 raise ValueError(
@@ -28,22 +43,33 @@ class Node(object):
         self._length = length
         self.descendants = []
         self.ancestor = None
+        self._length_parser = kw.pop('length_parser', length_parser)
+        self._length_formatter = kw.pop('length_formatter', length_formatter)
 
     @property
     def length(self):
-        return length_parser(self._length)
+        return self._length_parser(self._length)
 
     @length.setter
     def length(self, l):
         if l is None:
             self._length = l
         else:
-            self._length = length_formatter(l)
+            self._length = self._length_formatter(l)
 
     @classmethod
-    def create(cls, name=None, length=None, descendants=None):
-        node = cls(name=name, length=length)
-        for descendant in descendants:
+    def create(cls, name=None, length=None, descendants=None, **kw):
+        """
+        Create a new `Node` object.
+
+        :param name: Node label.
+        :param length: Branch length from the new node to its parent.
+        :param descendants: list of descendants or `None`.
+        :param kw: Additonal keyword arguments are passed through to `Node.__init__`.
+        :return: `Node` instance.
+        """
+        node = cls(name=name, length=length, **kw)
+        for descendant in descendants or []:
             node.add_descendant(descendant)
         return node
 
@@ -68,7 +94,7 @@ class Node(object):
 
     @property
     def is_binary(self):
-        return all([len(n.descendants) in (0,2) for n in self.walk()])
+        return all([len(n.descendants) in (0, 2) for n in self.walk()])
 
     def walk(self, mode=None):
         """
@@ -211,14 +237,16 @@ class Node(object):
         for n in self.walk():
             n.length = None
 
-def loads(s):
+
+def loads(s, **kw):
     """
     Load a list of trees from a Newick formatted string.
 
     :param s: Newick formatted string.
+    :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
-    return [parse_node(ss.strip()) for ss in s.split(';') if ss.strip()]
+    return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
 
 
 def dumps(trees):
@@ -233,17 +261,31 @@ def dumps(trees):
     return ';\n'.join([tree.newick for tree in trees]) + ';'
 
 
-def load(fp):
-    return loads(fp.read())
+def load(fp, **kw):
+    """
+    Load a list of trees from an open Newick formatted file.
+
+    :param fp: open file handle.
+    :param kw: Keyword arguments are passed through to `Node.create`.
+    :return: List of Node objects.
+    """
+    return loads(fp.read(), **kw)
 
 
 def dump(tree, fp):
     fp.write(dumps(tree))
 
 
-def read(fname, encoding='utf8'):
+def read(fname, encoding='utf8', **kw):
+    """
+    Load a list of trees from a Newick formatted file.
+
+    :param fname: file path.
+    :param kw: Keyword arguments are passed through to `Node.create`.
+    :return: List of Node objects.
+    """
     with io.open(fname, encoding=encoding) as fp:
-        return load(fp)
+        return load(fp, **kw)
 
 
 def write(tree, fname, encoding='utf8'):
@@ -278,7 +320,14 @@ def _parse_siblings(s):
             current.append(c)
 
 
-def parse_node(s):
+def parse_node(s, **kw):
+    """
+    Parse a Newick formatted string into a `Node` object.
+
+    :param s: Newick formatted string to parse.
+    :param kw: Keyword arguments are passed through to `Node.create`.
+    :return: `Node` instance.
+    """
     s = s.strip()
     parts = s.split(')')
     if len(parts) == 1:
@@ -288,4 +337,4 @@ def parse_node(s):
             raise ValueError('unmatched braces %s' % parts[0][:100])
         descendants, label = list(_parse_siblings(')'.join(parts[:-1])[1:])), parts[-1]
     name, length = _parse_name_and_length(label)
-    return Node.create(name=name, length=length, descendants=descendants)
+    return Node.create(name=name, length=length, descendants=descendants, **kw)
