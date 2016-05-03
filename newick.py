@@ -24,7 +24,8 @@ class Node(object):
     A Node may be a tree, a subtree or a leaf.
 
     A Node has optional name and length (from parent) and a (possibly empty) list of
-    descendants.
+    descendants. It further has an ancestor, which is *None* if the node is the
+    root node of a tree.
     """
     def __init__(self, name=None, length=None, **kw):
         """
@@ -185,13 +186,21 @@ class Node(object):
         :param preserve_lengths: If true, branch lengths of removed nodes are \
         added to those of their children.
         """
-        for n in self.walk(mode="preorder"):
-            while len(n.descendants) == 1:
-                only_child = n.descendants.pop()
-                for grandchild in only_child.descendants:
-                    n.add_descendant(grandchild)
-                    if preserve_lengths:
-                        grandchild.length += only_child.length
+        for n in self.walk(mode='postorder'):
+            if n.ancestor and len(n.ancestor.descendants) == 1:
+                grandfather = n.ancestor.ancestor
+                father = n.ancestor
+                if preserve_lengths: 
+                    n.length += father.length
+                if grandfather:
+                    for i,child in enumerate(grandfather.descendants):
+                        if child is father:
+                            del grandfather.descendants[i]
+                    grandfather.add_descendant(n)
+                else:
+                    self.descendants = n.descendants
+                    if preserve_lengths: 
+                        self.length = n.length
 
     def resolve_polytomies(self):
         """
