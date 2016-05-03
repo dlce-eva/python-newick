@@ -143,9 +143,9 @@ class Tests(TestCase):
 
         tree2 = loads("((A:1,B:1):1,C:1)")[0]
         tree2.prune_by_names(['A'])
-        assert tree2.newick == '((B:1):1,C:1)'
+        assert tree2.newick == '((B:1.0):1.0,C:1.0)'
         tree2.remove_redundant_nodes()
-        assert tree2.newick == '(C:1,B:2.0)'
+        assert tree2.newick == '(C:1.0,B:2.0)'
 
     def test_polytomy_resolution(self):
         tree = loads('(A,B,(C,D,(E,F)))')[0]
