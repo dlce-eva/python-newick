@@ -114,14 +114,12 @@ class Tests(TestCase):
         self.assertEqual(clone_node(tree1).newick, newick)
 
     def test_leaf_functions(self):
-
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         leaf_names = set(tree.get_leaf_names())
         true_names = set(["B", "C", "D"])
         self.assertEqual(leaf_names, true_names)
 
     def test_prune(self):
-
         tree = loads('(A,((B,C),(D,E)))')[0]
         leaves = set(tree.get_leaf_names())
         prune_nodes = set(["A", "C", "E"])
@@ -161,6 +159,13 @@ class Tests(TestCase):
         tree = loads('(A,B,(C,D,(E,F)))')[0]
         self.assertFalse(tree.is_binary)
         tree.resolve_polytomies()
+        self.assertEqual(tree.newick, '(A,((C,((E,F),D):0.0),B):0.0)')
+        self.assertTrue(tree.is_binary)
+
+        tree = loads('(A,B,C,D,E,F)')[0]
+        self.assertFalse(tree.is_binary)
+        tree.resolve_polytomies()
+        self.assertEqual(tree.newick, '(A,(F,(B,(E,(C,D):0.0):0.0):0.0):0.0)')
         self.assertTrue(tree.is_binary)
 
     def test_name_removal(self):
