@@ -147,9 +147,7 @@ class Tests(TestCase):
         tree2.remove_redundant_nodes()
         assert tree2.newick == '(C:1,B:2.0)'
 
-
     def test_polytomy_resolution(self):
-
         tree = loads('(A,B,(C,D,(E,F)))')[0]
         self.assertFalse(tree.is_binary)
         tree.resolve_polytomies()
@@ -185,3 +183,9 @@ class Tests(TestCase):
         tree.remove_lengths()
         topology_only = dumps(tree)
         self.assertEqual(topology_only, '((,(,)));')
+
+    def test_singletons(self):
+        tree = loads('(((((A), B), (C, D))), E);')[0]
+        self.assertEqual(len(list(tree.walk())), 11)
+        tree.remove_redundant_nodes()
+        self.assertEqual(len(list(tree.walk())), 9)
