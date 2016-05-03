@@ -46,6 +46,7 @@ class Node(object):
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
+        self.length = length
 
     @property
     def length(self):
@@ -83,7 +84,7 @@ class Node(object):
         """The representation of the Node in Newick format."""
         label = self.name or ''
         if self._length:
-            label += ':' + self._length
+            label += ':' + self._length_formatter(self.length)
         descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
@@ -309,7 +310,7 @@ def _parse_name_and_length(s):
     return s or None, l or None
 
 
-def _parse_siblings(s):
+def _parse_siblings(s, **kw):
     """
     http://stackoverflow.com/a/26809037
     """
@@ -319,7 +320,7 @@ def _parse_siblings(s):
     # trick to remove special-case of trailing chars
     for c in (s + ","):
         if c == "," and bracket_level == 0:
-            yield parse_node("".join(current))
+            yield parse_node("".join(current), **kw)
             current = []
         else:
             if c == "(":
@@ -344,6 +345,6 @@ def parse_node(s, **kw):
     else:
         if not parts[0].startswith('('):
             raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants, label = list(_parse_siblings(')'.join(parts[:-1])[1:])), parts[-1]
+        descendants, label = list(_parse_siblings(')'.join(parts[:-1], **kw)[1:])), parts[-1]
     name, length = _parse_name_and_length(label)
     return Node.create(name=name, length=length, descendants=descendants, **kw)
