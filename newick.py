@@ -194,7 +194,7 @@ class Node(object):
                     n.length += father.length
                 if grandfather:
                     for i,child in enumerate(grandfather.descendants):
-                        if id(child) == id(father):
+                        if child is father:
                             del grandfather.descendants[i]
                     grandfather.add_descendant(n)
                 else:
