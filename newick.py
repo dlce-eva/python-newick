@@ -192,9 +192,9 @@ class Node(object):
             while n.ancestor and len(n.ancestor.descendants) == 1:
                 grandfather = n.ancestor.ancestor
                 father = n.ancestor
-                if preserve_lengths: 
+                if preserve_lengths:
                     n.length += father.length
-                
+
                 if grandfather:
                     for i, child in enumerate(grandfather.descendants):
                         if child is father:
@@ -203,7 +203,7 @@ class Node(object):
                     father.ancestor = None
                 else:
                     self.descendants = n.descendants
-                    if preserve_lengths: 
+                    if preserve_lengths:
                         self.length = n.length
 
     def resolve_polytomies(self):
@@ -214,11 +214,10 @@ class Node(object):
         """
         for n in self.walk():
             if len(n.descendants) > 2:
-                new = Node(length=0.0)
+                new = Node(length=self._length_formatter(self._length_parser('0')))
                 while len(n.descendants) > 1:
                     new.add_descendant(n.descendants.pop())
                 n.descendants.append(new)
-        assert self.is_binary, "{:s} should be binary".format(self.newick)
 
     def remove_names(self):
         """
