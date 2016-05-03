@@ -141,6 +141,13 @@ class Tests(TestCase):
         tree.remove_redundant_nodes()
         self.assertFalse(any([len(n.descendants) == 1 for n in tree.walk()]))
 
+        tree2 = loads("((A:1,B:1):1,C:1)")[0]
+        tree2.prune_by_names(['A'])
+        assert tree2.newick == '((B:1):1,C:1)'
+        tree2.remove_redundant_nodes()
+        assert tree2.newick == '(C:1,B:2.0)'
+
+
     def test_polytomy_resolution(self):
 
         tree = loads('(A,B,(C,D,(E,F)))')[0]
