@@ -189,3 +189,10 @@ class Tests(TestCase):
         self.assertEqual(len(list(tree.walk())), 11)
         tree.remove_redundant_nodes()
         self.assertEqual(len(list(tree.walk())), 9)
+
+    def test_comments(self):
+        t = '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];'
+        with self.assertRaises(ValueError):
+            loads(t)
+        tree = loads(t, strip_comments=True)[0]
+        self.assertEqual(len(list(tree.walk())), 3)
