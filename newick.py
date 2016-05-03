@@ -188,8 +188,8 @@ class Node(object):
         :param preserve_lengths: If true, branch lengths of removed nodes are \
         added to those of their children.
         """
-        for n in self.walk(mode='postorder'):
-            if n.ancestor and len(n.ancestor.descendants) == 1:
+        for n in self.walk(mode='preorder'):
+            while n.ancestor and len(n.ancestor.descendants) == 1:
                 grandfather = n.ancestor.ancestor
                 father = n.ancestor
                 if preserve_lengths: 
@@ -216,7 +216,7 @@ class Node(object):
                 while len(n.descendants) > 1:
                     new.add_descendant(n.descendants.pop())
                 n.descendants.append(new)
-        assert self.is_binary
+        assert self.is_binary, "{:s} should be binary".format(self.newick)
 
     def remove_names(self):
         """
