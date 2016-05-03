@@ -6,9 +6,11 @@ Functionality to read and write the Newick serialization format for trees.
 """
 from __future__ import unicode_literals
 import io
+import re
 
 
 RESERVED_PUNCTUATION = ':;,()'
+COMMENT = re.compile('\[[^\]]*\]')
 
 
 def length_parser(x):
@@ -193,7 +195,7 @@ class Node(object):
                 if preserve_lengths: 
                     n.length += father.length
                 if grandfather:
-                    for i,child in enumerate(grandfather.descendants):
+                    for i, child in enumerate(grandfather.descendants):
                         if child is father:
                             del grandfather.descendants[i]
                     grandfather.add_descendant(n)
@@ -247,14 +249,17 @@ class Node(object):
             n.length = None
 
 
-def loads(s, **kw):
+def loads(s, strip_comments=False, **kw):
     """
     Load a list of trees from a Newick formatted string.
 
     :param s: Newick formatted string.
+    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
+    brackets.
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
+    kw['strip_comments'] = strip_comments
     return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
 
 
@@ -270,14 +275,17 @@ def dumps(trees):
     return ';\n'.join([tree.newick for tree in trees]) + ';'
 
 
-def load(fp, **kw):
+def load(fp, strip_comments=False, **kw):
     """
     Load a list of trees from an open Newick formatted file.
 
     :param fp: open file handle.
+    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
+    brackets.
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
+    kw['strip_comments'] = strip_comments
     return loads(fp.read(), **kw)
 
 
@@ -285,14 +293,17 @@ def dump(tree, fp):
     fp.write(dumps(tree))
 
 
-def read(fname, encoding='utf8', **kw):
+def read(fname, encoding='utf8', strip_comments=False, **kw):
     """
     Load a list of trees from a Newick formatted file.
 
     :param fname: file path.
+    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
+    brackets.
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
+    kw['strip_comments'] = strip_comments
     with io.open(fname, encoding=encoding) as fp:
         return load(fp, **kw)
 
@@ -309,7 +320,7 @@ def _parse_name_and_length(s):
     return s or None, l or None
 
 
-def _parse_siblings(s):
+def _parse_siblings(s, **kw):
     """
     http://stackoverflow.com/a/26809037
     """
@@ -319,7 +330,7 @@ def _parse_siblings(s):
     # trick to remove special-case of trailing chars
     for c in (s + ","):
         if c == "," and bracket_level == 0:
-            yield parse_node("".join(current))
+            yield parse_node("".join(current), **kw)
             current = []
         else:
             if c == "(":
@@ -329,14 +340,18 @@ def _parse_siblings(s):
             current.append(c)
 
 
-def parse_node(s, **kw):
+def parse_node(s, strip_comments=False, **kw):
     """
     Parse a Newick formatted string into a `Node` object.
 
     :param s: Newick formatted string to parse.
+    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
+    brackets.
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: `Node` instance.
     """
+    if strip_comments:
+        s = COMMENT.sub('', s)
     s = s.strip()
     parts = s.split(')')
     if len(parts) == 1:
@@ -344,6 +359,7 @@ def parse_node(s, **kw):
     else:
         if not parts[0].startswith('('):
             raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants, label = list(_parse_siblings(')'.join(parts[:-1])[1:])), parts[-1]
+        descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
+        label = parts[-1]
     name, length = _parse_name_and_length(label)
     return Node.create(name=name, length=length, descendants=descendants, **kw)
