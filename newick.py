@@ -24,7 +24,8 @@ class Node(object):
     A Node may be a tree, a subtree or a leaf.
 
     A Node has optional name and length (from parent) and a (possibly empty) list of
-    descendants.
+    descendants. It further has an ancestor, which is *None* if the node is the
+    root node of a tree.
     """
     def __init__(self, name=None, length=None, **kw):
         """
