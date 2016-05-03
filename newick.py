@@ -157,7 +157,7 @@ class Node(object):
         """
         Remove all those nodes in the specified list, or if inverse=True,
         remove all those nodes not in the specified list.  The specified nodes
-        must be leaves
+        must be leaves and distinct from the root node.
 
         :param nodes: A list of Node objects
         :param inverse: Specifies whether to remove nodes in the list or not\
@@ -168,7 +168,10 @@ class Node(object):
         for n in self.walk(mode="postorder"):
             if (not inverse and n in leaves) or \
                     (inverse and n.is_leaf and n not in leaves):
-                n.ancestor.descendants.remove(n)
+                if n.ancestor:
+                    # We won't prune the root node, even if it is a leave and requested to
+                    # to be pruned!
+                    n.ancestor.descendants.remove(n)
 
     def prune_by_names(self, leaf_names, inverse=False):
         """

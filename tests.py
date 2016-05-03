@@ -129,6 +129,11 @@ class Tests(TestCase):
         tree.prune_by_names(prune_nodes, inverse=True)
         self.assertEqual(set(tree.get_leaf_names()), prune_nodes)
 
+    def test_prune_single_node_tree(self):
+        tree = loads('A')[0]
+        tree.prune(tree.get_leaves())
+        self.assertEqual(tree.newick, 'A')
+
     def test_bad_prune(self):
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         self.assertRaises(ValueError, tree.prune_by_names, ['E'])
