@@ -188,17 +188,19 @@ class Node(object):
         :param preserve_lengths: If true, branch lengths of removed nodes are \
         added to those of their children.
         """
-        for n in self.walk(mode='preorder'):
+        for n in self.walk(mode='postorder'):
             while n.ancestor and len(n.ancestor.descendants) == 1:
                 grandfather = n.ancestor.ancestor
                 father = n.ancestor
                 if preserve_lengths: 
                     n.length += father.length
+                
                 if grandfather:
                     for i, child in enumerate(grandfather.descendants):
                         if child is father:
                             del grandfather.descendants[i]
                     grandfather.add_descendant(n)
+                    father.ancestor = None
                 else:
                     self.descendants = n.descendants
                     if preserve_lengths: 

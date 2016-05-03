@@ -149,9 +149,13 @@ class Tests(TestCase):
         self.assertEqual(tree2.newick, '(C:1,B:2.0)')
 
     def test_stacked_redundant_node_removal(self):
-        tree = loads("((((A,B))),C)")[0]
+        tree = loads("(((((A,B))),C))")[0]
+        tree.remove_redundant_nodes(preserve_lengths=False)
+        self.assertEqual(tree.newick, "(C,(A,B))")
+
+        tree = loads("(((A,B):1):2)")[0]
         tree.remove_redundant_nodes()
-        self.assertEqual(tree.newick, "(C,(A,B):0.0)")
+        self.assertEqual(tree.newick, '(A,B):3.0')
 
     def test_polytomy_resolution(self):
         tree = loads('(A,B,(C,D,(E,F)))')[0]
