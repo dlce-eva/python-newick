@@ -119,6 +119,21 @@ class Node(object):
                 for n in node.walk():
                     yield n
 
+    def visit(self, visitor, predicate=None, **kw):
+        """
+        Apply a function to matching nodes in the (sub)tree rooted at self.
+
+        :param visitor: A callable accepting a Node object as single argument..
+        :param predicate: A callable accepting a Node object as single argument and \
+        returning a boolean signaling whether Node matches; if `None` all nodes match.
+        :param kw: Addtional keyword arguments are passed through to self.walk.
+        """
+        predicate = predicate or bool
+
+        for n in self.walk(**kw):
+            if predicate(n):
+                visitor(n)
+
     def _postorder(self):
         stack = [self]
         descendant_map = {id(node): [n for n in node.descendants] for node in self.walk()}
@@ -165,13 +180,14 @@ class Node(object):
         """
         if not all([n.is_leaf for n in leaves]):
             raise ValueError("prune only accepts leaf nodes")
-        for n in self.walk(mode="postorder"):
-            if (not inverse and n in leaves) or \
-                    (inverse and n.is_leaf and n not in leaves):
-                if n.ancestor:
-                    # We won't prune the root node, even if it is a leave and requested to
-                    # to be pruned!
-                    n.ancestor.descendants.remove(n)
+
+        self.visit(
+            lambda n: n.ancestor.descendants.remove(n),
+            # We won't prune the root node, even if it is a leave and requested to
+            # be pruned!
+            lambda n: ((not inverse and n in leaves) or
+                       (inverse and n.is_leaf and n not in leaves)) and n.ancestor,
+            mode="postorder")
 
     def prune_by_names(self, leaf_names, inverse=False):
         """
@@ -180,8 +196,7 @@ class Node(object):
         :param inverse: Specifies whether to remove nodes in the list or not\
                 in the list.
         """
-        nodes = [l for l in self.walk() if l.name in leaf_names]
-        self.prune(nodes, inverse)
+        self.prune([l for l in self.walk() if l.name in leaf_names], inverse)
 
     def remove_redundant_nodes(self, preserve_lengths=True):
         """
@@ -215,42 +230,37 @@ class Node(object):
         that all non-leaf nodes have only 2 descendants, i.e. the tree becomes
         a fully resolved binary tree.
         """
-        for n in self.walk():
-            if len(n.descendants) > 2:
-                new = Node(length=self._length_formatter(self._length_parser('0')))
-                while len(n.descendants) > 1:
-                    new.add_descendant(n.descendants.pop())
-                n.descendants.append(new)
+        def _resolve_polytomies(n):
+            new = Node(length=self._length_formatter(self._length_parser('0')))
+            while len(n.descendants) > 1:
+                new.add_descendant(n.descendants.pop())
+            n.descendants.append(new)
+
+        self.visit(_resolve_polytomies, lambda n: len(n.descendants) > 2)
 
     def remove_names(self):
         """
         Set the name of all nodes in the subtree to None.
         """
-        for n in self.walk():
-            n.name = None
+        self.visit(lambda n: setattr(n, 'name', None))
 
     def remove_internal_names(self):
         """
         Set the name of all non-leaf nodes in the subtree to None.
         """
-        for n in self.walk():
-            if not n.is_leaf:
-                n.name = None
+        self.visit(lambda n: setattr(n, 'name', None), lambda n: not n.is_leaf)
 
     def remove_leaf_names(self):
         """
         Set the name of all leaf nodes in the subtree to None.
         """
-        for n in self.walk():
-            if n.is_leaf:
-                n.name = None
+        self.visit(lambda n: setattr(n, 'name', None), lambda n: n.is_leaf)
 
     def remove_lengths(self):
         """
         Set the length of all nodes in the subtree to None.
         """
-        for n in self.walk():
-            n.length = None
+        self.visit(lambda n: setattr(n, 'length', None))
 
 
 def loads(s, strip_comments=False, **kw):
