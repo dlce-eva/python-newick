@@ -1,3 +1,4 @@
+# coding: utf-8
 """
 Functionality to read and write the Newick serialization format for trees.
 
@@ -200,7 +201,7 @@ class Node(object):
                 yield n
         else:  # default to a breadth-first search
             yield self
-            for node in self.descendants:
+            for node in self.descendants[:]:
                 for n in node.walk():
                     yield n
 
