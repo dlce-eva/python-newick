@@ -19,7 +19,7 @@ Clone glottobank/python-newick and switch to the master branch. Then:
 
 - Bump version number:
   ```
-  $ git commit -a -m"bumbed version number"
+  $ git commit -a -m"bumped version number"
   ```
 
 - Create a release tag:
