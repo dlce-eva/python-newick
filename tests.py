@@ -53,8 +53,13 @@ class Tests(TestCase):
         root = Node.create(length=100., length_formatter="{:0.1e}".format)
         self.assertEqual(root.newick, ':1.0e+02')
         weird_numbers_tree = "((a:1.e2,b:3j),(c:0x0BEFD6B0,d:003))"
-        root = loads(weird_numbers_tree, length_parser=lambda x: x)[0]
+        
+        root = loads(weird_numbers_tree, length_parser=None)[0]
         self.assertEqual(weird_numbers_tree, root.newick)
+        
+        with self.assertRaises(ValueError):
+            root = Node.create(length=1., length_formatter="({:0.1e})".format)
+            root.newick
 
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
