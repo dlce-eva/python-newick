@@ -50,11 +50,11 @@ class Tests(TestCase):
                 '(((a,b),(c,d)),e)'])
 
     def test_Node_custom_length(self):
-        root = Node.create(length='1e2', length_parser=lambda l: l + 'i')
-        self.assertEqual(root.length, '1e2i')
-        root = Node.create(length_formatter=lambda l: 5)
-        root.length = 10
-        self.assertAlmostEqual(root.length, 5)
+        root = Node.create(length=100., length_formatter="{:0.1e}".format)
+        self.assertEqual(root.newick, ':1.0e+02')
+        weird_numbers_tree = "((a:1.e2,b:3j),(c:0x0BEFD6B0,d:003))"
+        root = loads(weird_numbers_tree, length_parser=lambda x: x)[0]
+        self.assertEqual(weird_numbers_tree, root.newick)
 
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
@@ -67,7 +67,7 @@ class Tests(TestCase):
 
         root = loads('(,,(,));')[0]
         self.assertIsNone(root.name)
-        self.assertEqual(root.descendants[0].length, 0.0)
+        self.assertEqual(root.descendants[0].length, None)
         self.assertEqual(len(root.descendants), 3)
 
         root = loads('(A,B,(C,D));')[0]
@@ -149,12 +149,12 @@ class Tests(TestCase):
         tree2.prune_by_names(['A'])
         self.assertEqual(tree2.newick, '((B:1):1,C:1)')
         tree2.remove_redundant_nodes()
-        self.assertEqual(tree2.newick, '(C:1,B:2.0)')
+        self.assertEqual(tree2.newick, '(C:1,B:2)')
 
     def test_redundant_leaf_parent_removal(self):
         tree = loads("((aiw),((aas,(kbt)),((abg),abf)))")[0]
-        tree.remove_redundant_nodes()
-        self.assertEqual(tree.newick, "(((aas,kbt:0.0),(abf,abg:0.0)),aiw:0.0)")
+        tree.remove_redundant_nodes(preserve_lengths=False)
+        self.assertEqual(tree.newick, "(((aas,kbt),(abf,abg)),aiw)")
 
     def test_stacked_redundant_node_removal(self):
         tree = loads("(((((A,B))),C))")[0]
@@ -163,19 +163,19 @@ class Tests(TestCase):
 
         tree = loads("(((A,B):1):2)")[0]
         tree.remove_redundant_nodes()
-        self.assertEqual(tree.newick, '(A,B):3.0')
+        self.assertEqual(tree.newick, '(A,B):3')
 
     def test_polytomy_resolution(self):
         tree = loads('(A,B,(C,D,(E,F)))')[0]
         self.assertFalse(tree.is_binary)
         tree.resolve_polytomies()
-        self.assertEqual(tree.newick, '(A,((C,((E,F),D):0.0),B):0.0)')
+        self.assertEqual(tree.newick, '(A,((C,((E,F),D):0),B):0)')
         self.assertTrue(tree.is_binary)
 
         tree = loads('(A,B,C,D,E,F)')[0]
         self.assertFalse(tree.is_binary)
         tree.resolve_polytomies()
-        self.assertEqual(tree.newick, '(A,(F,(B,(E,(C,D):0.0):0.0):0.0):0.0)')
+        self.assertEqual(tree.newick, '(A,(F,(B,(E,(C,D):0):0):0):0)')
         self.assertTrue(tree.is_binary)
 
     def test_name_removal(self):

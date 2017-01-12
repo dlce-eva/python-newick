@@ -14,9 +14,12 @@ COMMENT = re.compile(r'\[[^\]]*\]')
 
 
 def length_parser(x):
+    """Parse a branch length."""
     if x is None:
         return None
-    return float(x)
+    if '.' in x:
+        return float(x)
+    return int(x)
 
 
 def length_formatter(x):
@@ -88,7 +91,13 @@ class Node(object):
         """The representation of the Node in Newick format."""
         label = self.name or ''
         if self.length is not None:
-            label += ':' + self._length_formatter(self.length)
+            l = self._length_formatter(self.length)
+            for char in RESERVED_PUNCTUATION:
+                if char in l:
+                    raise ValueError(
+                        'Bad length formatter: lengths must not contain "%s"'
+                        % char)
+            label += ':' + l
         descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
@@ -304,7 +313,10 @@ class Node(object):
                 grandfather = n.ancestor.ancestor
                 father = n.ancestor
                 if preserve_lengths:
-                    n.length += father.length
+                    if n.length is None:
+                        pass
+                    else:
+                        n.length += father.length or 0
 
                 if grandfather:
                     for i, child in enumerate(grandfather.descendants):
@@ -420,8 +432,8 @@ def write(tree, fname, encoding='utf8'):
         dump(tree, fp)
 
 
-def _parse_name_and_length(s):
-    length = None
+def _parse_name_and_length(s, length_parser=length_parser):
+    l = None
     if ':' in s:
         s, l = s.split(':', 1)
     return s or None, length_parser(l)
@@ -447,16 +459,22 @@ def _parse_siblings(s, **kw):
             current.append(c)
 
 
-def parse_node(s, strip_comments=False, **kw):
+def parse_node(s, strip_comments=False, length_parser=length_parser, **kw):
     """
     Parse a Newick formatted string into a `Node` object.
 
     :param s: Newick formatted string to parse.
     :param strip_comments: Flag signaling whether to strip comments enclosed in square \
     brackets.
+    :param length_parser: A function for converting length strings into \
+    the objects used as lengths, or None (for the identity function).
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: `Node` instance.
     """
+    if length_parser is None:
+        def length_parser(l):
+            return l
+
     if strip_comments:
         s = COMMENT.sub('', s)
     s = s.strip()
@@ -466,7 +484,10 @@ def parse_node(s, strip_comments=False, **kw):
     else:
         if not parts[0].startswith('('):
             raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
+        descendants = list(_parse_siblings(
+            ')'.join(parts[:-1])[1:],
+            length_parser=length_parser,
+            **kw))
         label = parts[-1]
-    name, length = _parse_name_and_length(label)
+    name, length = _parse_name_and_length(label, length_parser=length_parser)
     return Node.create(name=name, length=length, descendants=descendants, **kw)
