@@ -216,3 +216,13 @@ class Tests(TestCase):
             loads(t)
         tree = loads(t, strip_comments=True)[0]
         self.assertEqual(len(list(tree.walk())), 3)
+
+    def test_get_node(self):
+        tree = loads('(A,B,(C,D)E)F;')[0]
+        self.assertEqual(tree.get_node("A").name, 'A')
+        self.assertEqual(len(tree.get_node('E').get_leaves()), 2)
+        
+        # rename
+        tree.get_node('E').name = 'G'
+        self.assertEqual(tree.newick, '(A,B,(C,D)G)F')
+        
