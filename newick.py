@@ -165,10 +165,9 @@ class Node(object):
 
         :return: Node or None if name does not exist in tree
         """
-        try:
-            return [n for n in self.walk() if n.name == label][0]
-        except IndexError:
-            return None
+        for n in self.walk():
+            if n.name == label:
+                return n
     
     def get_leaf_names(self):
         """
