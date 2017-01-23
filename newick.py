@@ -158,7 +158,17 @@ class Node(object):
         :return: List of Nodes with no descendants.
         """
         return [n for n in self.walk() if n.is_leaf]
+    
+    def get_node(self, label):
+        """
+        Gets the specified node by name.
 
+        :return: Node or None if name does not exist in tree
+        """
+        for n in self.walk():
+            if n.name == label:
+                return n
+    
     def get_leaf_names(self):
         """
         Get the names of all the leaf nodes of the subtree descending from
