@@ -188,9 +188,6 @@ class Node(object):
         :param inverse: Specifies whether to remove nodes in the list or not\
                 in the list.
         """
-        if not all([n.is_leaf for n in leaves]):
-            raise ValueError("prune only accepts leaf nodes")
-
         self.visit(
             lambda n: n.ancestor.descendants.remove(n),
             # We won't prune the root node, even if it is a leave and requested to
