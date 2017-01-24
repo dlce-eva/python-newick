@@ -51,7 +51,10 @@ class Node(object):
     
     def __repr__(self):
         return 'Node("%s")' % self.name
-
+    
+    def __eq__(self, other):
+        return self.newick == other.newick
+        
     @property
     def length(self):
         return self._length_parser(self._length)
