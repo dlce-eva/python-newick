@@ -48,6 +48,9 @@ class Node(object):
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
+    
+    def __repr__(self):
+        return 'Node("%s")' % self.name
 
     @property
     def length(self):
