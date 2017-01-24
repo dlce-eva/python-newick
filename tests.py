@@ -134,10 +134,6 @@ class Tests(TestCase):
         tree.prune(tree.get_leaves())
         self.assertEqual(tree.newick, 'A')
 
-    def test_bad_prune(self):
-        tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
-        self.assertRaises(ValueError, tree.prune_by_names, ['E'])
-
     def test_redundant_node_removal(self):
         tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
         self.assertEqual(len(tree.descendants), 1)
@@ -229,7 +225,7 @@ class Tests(TestCase):
     def test_prune_node(self):
         tree = '(A,(B,(C,D)E)F)G;'
         t1 = loads(tree)[0]
-        t1.prune_by_names(["C", "D"])
+        t1.prune_by_names(["C", "D", "E"])
         t2 = loads(tree)[0]
         t2.prune_by_names(["E"])
         self.assertEqual(t1.newick, t2.newick)
