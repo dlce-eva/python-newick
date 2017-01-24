@@ -225,4 +225,11 @@ class Tests(TestCase):
         # rename
         tree.get_node('E').name = 'G'
         self.assertEqual(tree.newick, '(A,B,(C,D)G)F')
-        
+    
+    def test_prune_node(self):
+        tree = '(A,(B,(C,D)E)F)G;'
+        t1 = loads(tree)[0]
+        t1.prune_by_names(["C", "D"])
+        t2 = loads(tree)[0]
+        t2.prune_by_names(["E"])
+        self.assertEqual(t1.newick, t2.newick)
