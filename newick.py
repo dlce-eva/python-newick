@@ -48,7 +48,7 @@ class Node(object):
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
-    
+
     def __repr__(self):
         return 'Node("%s")' % self.name
 
@@ -161,7 +161,7 @@ class Node(object):
         :return: List of Nodes with no descendants.
         """
         return [n for n in self.walk() if n.is_leaf]
-    
+
     def get_node(self, label):
         """
         Gets the specified node by name.
@@ -171,7 +171,7 @@ class Node(object):
         for n in self.walk():
             if n.name == label:
                 return n
-    
+
     def get_leaf_names(self):
         """
         Get the names of all the leaf nodes of the subtree descending from

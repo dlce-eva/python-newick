@@ -48,11 +48,11 @@ class Tests(TestCase):
                 '(c,d)',
                 '(c,d)',
                 '(((a,b),(c,d)),e)'])
-    
+
     def test_repr(self):
         n = Node(name="A")
         self.assertEqual(repr(n), 'Node("A")')
-    
+
     def test_Node_custom_length(self):
         root = Node.create(length='1e2', length_parser=lambda l: l + 'i')
         self.assertEqual(root.length, '1e2i')
@@ -221,11 +221,11 @@ class Tests(TestCase):
         tree = loads('(A,B,(C,D)E)F;')[0]
         self.assertEqual(tree.get_node("A").name, 'A')
         self.assertEqual(len(tree.get_node('E').get_leaves()), 2)
-        
+
         # rename
         tree.get_node('E').name = 'G'
         self.assertEqual(tree.newick, '(A,B,(C,D)G)F')
-    
+
     def test_prune_node(self):
         tree = '(A,(B,(C,D)E)F)G;'
         t1 = loads(tree)[0]
