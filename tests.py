@@ -48,7 +48,11 @@ class Tests(TestCase):
                 '(c,d)',
                 '(c,d)',
                 '(((a,b),(c,d)),e)'])
-
+    
+    def test_repr(self):
+        n = Node(name="A")
+        self.assertEqual(repr(n), 'Node("A")')
+    
     def test_Node_custom_length(self):
         root = Node.create(length='1e2', length_parser=lambda l: l + 'i')
         self.assertEqual(root.length, '1e2i')
