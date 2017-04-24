@@ -36,5 +36,5 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy'
     ],
     py_modules=["newick", "tests"],
-    tests_require=['nose', 'coverage'],
+    tests_require=['nose', 'coverage', 'ddt'],
 )
