@@ -1,13 +1,95 @@
 # coding: utf8
 from __future__ import unicode_literals
-from unittest import TestCase
 import os
 from tempfile import mktemp
+import unittest
 
+from ddt import ddt, data
 from newick import loads, dumps, Node, read, write, parse_node
 
 
-class Tests(TestCase):
+class TestEmptyNodeBasicFunctionality(unittest.TestCase):
+    def setUp(self):
+        self.test_obj = Node()
+
+    def test_empty_node(self):
+        self.assertEqual(None, self.test_obj.name)
+        self.assertEqual(0.0, self.test_obj.length)
+
+    def test_empty_node_newick_representation(self):
+        self.assertEqual("", self.test_obj.newick)
+
+    def test_empty_node_as_descendants_list(self):
+        self.assertEqual([], self.test_obj.descendants)
+
+
+@ddt
+class TestNodeBasicFunctionality(unittest.TestCase):
+    @data({"name": "test_name"},
+          {"name": "test_name", "length": "3"})
+    def test_node_with_parameters(self, test_set):
+        if "length" in test_set:
+            proper_length = 3.0
+        else:
+            proper_length = 0.0
+        test_obj = Node(**test_set)
+        self.assertEqual(test_set["name"], test_obj.name)
+        self.assertEqual(proper_length, test_obj.length)
+
+    def test_node_newick_representation_without_length(self):
+        test_obj = Node(name="A")
+        self.assertEqual("A", test_obj.newick)
+
+    def test_node_newick_representation_with_length(self):
+        test_obj = Node(name="A", length="3")
+        self.assertEqual("A:3", test_obj.newick)
+
+    def test_node_parameters_changeability(self):
+        test_obj = Node(name="A")
+        self.assertEqual("A", test_obj.name)
+        test_obj.name = "B"
+        self.assertEqual("B", test_obj.name)
+
+    def test_node_length_changeability(self):
+        test_obj = Node(length="10")
+        self.assertEqual(10, test_obj.length)
+        test_obj.length = "12"
+        self.assertEqual(12, test_obj.length)
+
+
+@ddt
+class TestNodeDescendantsFunctionality(unittest.TestCase):
+    def setUp(self):
+        self.test_obj = Node("A", "1.0")
+        self.test_descendant = Node("D", "2.0")
+        self.lengths = ["2.0", "3.0", "4.0"]
+
+    @data(["D1.1", "D1.2", "D1.3"], ["D", "", ""], ["", "", ""])
+    def test_node_representation_with_deeper_descendants(self, test_data):
+        """
+        :param test_data: names of descendants
+
+        Procedure:
+        1. Make simple tree with one descendant having two another descendants inside
+        2. Verify if it's newick representation is correct in comparision to parsed "proper_result"
+
+        :return:
+        """
+        single_nodes_reprs = ["{0}:{1}".format(name, length) for name, length in zip(test_data, self.lengths)]
+        proper_result = "(({1},{2}){0})A:1.0".format(*single_nodes_reprs)
+
+        d1, d2, d3 = [Node(name, length) for name, length in zip(test_data, self.lengths)]
+        d1.add_descendant(d2)
+        d1.add_descendant(d3)
+        self.test_obj.add_descendant(d1)
+        self.assertEqual(proper_result, self.test_obj.newick)
+
+    def test_node_as_descendants_list(self):
+        self.test_obj.add_descendant(self.test_descendant)
+        self.assertListEqual([self.test_descendant], self.test_obj.descendants)
+
+
+class Tests(unittest.TestCase):
     def test_read_write(self):
         trees = read(os.path.join(
             os.path.dirname(__file__), 'fixtures', 'tree-glottolog-newick.txt'))
