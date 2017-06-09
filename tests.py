@@ -71,11 +71,14 @@ class TestNodeDescendantsFunctionality(unittest.TestCase):
 
         Procedure:
         1. Make simple tree with one descendant having two another descendants inside
-        2. Verify if it's newick representation is correct in comparision to parsed "proper_result"
+        2. Verify if it's newick representation is correct in comparision to parsed
+        "proper_result"
 
         :return:
         """
-        single_nodes_reprs = ["{0}:{1}".format(name, length) for name, length in zip(test_data, self.lengths)]
+        single_nodes_reprs = [
+            "{0}:{1}".format(name, length)
+            for name, length in zip(test_data, self.lengths)]
         proper_result = "(({1},{2}){0})A:1.0".format(*single_nodes_reprs)
 
         d1, d2, d3 = [Node(name, length) for name, length in zip(test_data, self.lengths)]
@@ -141,6 +144,27 @@ class Tests(unittest.TestCase):
         root = Node.create(length_formatter=lambda l: 5)
         root.length = 10
         self.assertAlmostEqual(root.length, 5)
+
+    def test_Node_ascii_art(self):
+        self.assertEqual(
+            loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True), """\
+     /-A
+--Ex-|
+     |    /-B
+     \-D--|
+          \-C""")
+        self.assertEqual(
+            loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True, show_internal=False), """\
+    /-A
+----|
+    |   /-B
+    \---|
+        \-C""")
+        self.assertEqual(
+            loads('(A,B,C)D;')[0].ascii_art(strict=True, show_internal=False), """\
+    /-A
+----+-B
+    \-C""")
 
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""

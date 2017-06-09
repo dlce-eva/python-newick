@@ -94,6 +94,87 @@ class Node(object):
             descendants = '(' + descendants + ')'
         return descendants + label
 
+    def _ascii_art(self, char1='\u2500', show_internal=True, maxlen=None):
+        if maxlen is None:
+            maxlen = max(
+                len(n.name) for n in self.walk() 
+                if n.name and (show_internal or n.is_leaf)) + 4
+        pad = ' ' * (maxlen - 1)
+        namestr = '\u2500' + (self.name or '')
+
+        if self.descendants:
+            mids = []
+            result = []
+            for i, c in enumerate(self.descendants):
+                if i == 0:
+                    char2 = '\u250c'
+                elif i == len(self.descendants) - 1:
+                    char2 = '\u2514'
+                else:
+                    char2 = '\u2500'
+                clines, mid = c._ascii_art(
+                    char1=char2, show_internal=show_internal, maxlen=maxlen)
+                mids.append(mid + len(result))
+                result.extend(clines)
+                result.append('')
+            result.pop()
+            lo, hi, end = mids[0], mids[-1], len(result)
+            prefixes = [pad] * (lo + 1) +\
+                       [pad + '\u2502'] * (hi - lo - 1) + \
+                       [pad] * (end - hi)
+            mid = (lo + hi) // 2
+            prefixes[mid] = char1 + '\u2500' * (maxlen - 2) + prefixes[mid][-1]
+            result = [p + l for p, l in zip(prefixes, result)]
+            if show_internal:
+                stem = result[mid]
+                result[mid] = stem[0] + namestr + stem[len(namestr) + 1:]
+            return result, mid
+        return [char1 + namestr], 0
+
+    def ascii_art(self, strict=False, show_internal=True):
+        """
+        Return a unicode string representing a tree in ASCII art fashion.
+
+        :param strict: Use ASCII characters strictly (for the tree symbols).
+        :param show_internal: Show labels of internal nodes.
+        :return: unicode string
+
+        >>> node = loads('((A,B)C,((D,E)F,G,H)I)J;')[0]
+        >>> print(node.ascii_art(show_internal=False, strict=True))
+                /-A
+            /---|
+            |   \-B
+        ----|       /-D
+            |   /---|
+            |   |   \-E
+            \---|
+                |-G
+                \-H
+        """
+        cmap = {
+            '\u2500': '-',
+            '\u2502': '|',
+            '\u250c': '/',
+            '\u2514': '\\',
+            '\u251c': '|',
+            '\u2524': '|',
+            '\u253c': '+',
+        }
+
+        def normalize(line):
+            m = re.compile('(?<=\u2502)(?P<s>\s+)(?=[\u250c\u2514\u2502])')
+            line = m.sub(lambda m: m.group('s')[1:], line)
+            line = re.sub('\u2500\u2502', '\u2500\u2524', line)  # -|
+            line = re.sub('\u2502\u2500', '\u251c', line)  # |-
+            line = re.sub('\u2524\u2500', '\u253c', line)  # -|-
+            if strict:
+                for u, a in cmap.items():
+                    line = line.replace(u, a)
+            return line
+        return '\n'.join(
+            normalize(l) for l in self._ascii_art(show_internal=show_internal)[0]
+            if set(l) != {' ', '\u2502'})  # remove lines of only spaces and pipes
+
     @property
     def is_leaf(self):
         return not bool(self.descendants)
