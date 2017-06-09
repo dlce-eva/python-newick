@@ -97,7 +97,7 @@ class Node(object):
     def _ascii_art(self, char1='\u2500', show_internal=True, maxlen=None):
         if maxlen is None:
             maxlen = max(
-                len(n.name) for n in self.walk() 
+                len(n.name) for n in self.walk()
                 if n.name and (show_internal or n.is_leaf)) + 4
         pad = ' ' * (maxlen - 1)
         namestr = '\u2500' + (self.name or '')
