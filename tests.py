@@ -166,6 +166,13 @@ class Tests(unittest.TestCase):
 ----+-B
     \-C""")
 
+    def test_Node_ascii_art_singleton(self):
+        self.assertEqual(
+            loads('((A,B)C)Ex;')[0].ascii_art(strict=True), """\
+          /-A
+--Ex --C--|
+          \-B""")
+
     def test_loads(self):
         """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
 

@@ -106,7 +106,9 @@ class Node(object):
             mids = []
             result = []
             for i, c in enumerate(self.descendants):
-                if i == 0:
+                if len(self.descendants) == 1:
+                    char2 = '\u2500'
+                elif i == 0:
                     char2 = '\u250c'
                 elif i == len(self.descendants) - 1:
                     char2 = '\u2514'
@@ -123,7 +125,7 @@ class Node(object):
                        [pad + '\u2502'] * (hi - lo - 1) + \
                        [pad] * (end - hi)
             mid = (lo + hi) // 2
-            prefixes[mid] = char1 + '\u2500' * (maxlen - 2) + prefixes[mid][-1]
+            prefixes[mid] = char1 + '\u2500' * (len(prefixes[mid]) - 2) + prefixes[mid][-1]
             result = [p + l for p, l in zip(prefixes, result)]
             if show_internal:
                 stem = result[mid]
