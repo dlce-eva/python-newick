@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name='newick',
-    version="0.9.2.dev0",
+    version="0.9.2",
     description='A python module to read and write the Newick format',
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
