@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 import io
 import re
 
-__version__ = "0.9.2"
+__version__ = "0.9.3.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
 COMMENT = re.compile('\[[^\]]*\]')
