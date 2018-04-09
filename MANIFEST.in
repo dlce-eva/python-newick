@@ -1,2 +1,2 @@
-include *.rst *.md LICENSE
-recursive-include fixtures *.txt
+graft src
+global-exclude *.py[co]

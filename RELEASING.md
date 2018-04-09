@@ -12,30 +12,46 @@ Clone glottobank/python-newick and switch to the master branch. Then:
 
 - Make sure flake8 passes::
   ```
-  $ flake8 --ignore=E711,E712,D100,D101,D103,D102,D301 --max-line-length=100 .
+  $ flake8
   ```
 
-- Change version to the new version number in `setup.py`
+- Change the version to the new version number in
+  - `setup.py`
+  - `src/newick.py`
 
-- Bump version number:
-  ```
-  $ git commit -a -m"bumped version number"
-  ```
+- Create the release commit:
+```shell
+git commit -a -m "release <VERSION>"
+```
 
 - Create a release tag:
-  ```
-  $ git tag -a v<version> -m"first version to be released on pypi"
-  ```
+```shell
+git tag -a v<VERSION> -m "<VERSION> release"
+```
+
+- Release to PyPI:
+```shell
+git checkout tags/v<VERSION>
+rm dist/*
+python setup.py sdist
+twine upload dist/*
+rm dist/*
+python setup.py bdist_wheel
+twine upload dist/*
+```
 
 - Push to github:
-  ```
-  $ git push origin
-  $ git push --tags
-  ```
+```shell
+git push origin
+git push --tags origin
+```
 
-- Make sure your system Python has ``setuptools-git`` installed and release to
-  PyPI::
-  ```
-  $ git checkout tags/v$1
-  $ python setup.py sdist register upload
-  ```
+- Append `.dev0` to the version number for the new development cycle in
+  - `setup.py`
+  - `src/newick.py`
+
+- Commit/push the version change:
+```shell
+git commit -a -m "bump version for development"
+git push origin
+```
