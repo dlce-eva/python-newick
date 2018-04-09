@@ -46,6 +46,7 @@ setup(
             'twine',
         ],
         'test': [
+            'ddt',
             'pytest>=3.1',
             'pytest-mock',
             'mock',
