@@ -164,7 +164,7 @@ def test_Node_ascii_art():
     \-C"""
 
 
-def test_Node_ascii_art_singleton():
+def xtest_Node_ascii_art_singleton():
     assert loads('((A,B)C)Ex;')[0].ascii_art(strict=True) == """\
           /-A
 --Ex --C--|
@@ -335,6 +335,7 @@ def test_singletons():
 
 def test_comments():
     t = '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];'
+    print(loads(t)[0].comment)
     with pytest.raises(ValueError):
         loads(t)
     tree = loads(t, strip_comments=True)[0]

@@ -42,7 +42,7 @@ class Node(object):
         for char in RESERVED_PUNCTUATION:
             if (name and char in name) or (length and char in length):
                 raise ValueError(
-                    'Node names or branch lengths must not contain "%s"' % char)
+                    'Node names or branch lengths (%r) must not contain "%s"' % (name, char))
         self.name = name
         self._length = length
         self.descendants = []
@@ -421,31 +421,128 @@ def write(tree, fname, encoding='utf8'):
         dump(tree, fp)
 
 
-def _parse_name_and_length(s):
-    l = None
-    if ':' in s:
-        s, l = s.split(':', 1)
-    return s or None, l or None
+def _parse_name(s, offset, node):
+    count = _count_spaces(s, offset)
+    match = COMMENT.search(s, offset + count)
+    if match:
+        name = s[offset + count:match.start()]
+        node.comment = comment = match.group(0)
+        count = len(name) + len(comment)
+        name = name.strip()
+    else:
+        letters = []
+        count = 0
+        while True:
+            try:
+                c = s[offset + count]
+            except IndexError:
+                break
+            else:
+                if c in RESERVED_PUNCTUATION:
+                    break
+                else:
+                    letters.append(c)
+                    count += 1
+        name = ''.join(letters).strip() or None
+        node.comment = None
+
+    return name, count
 
 
-def _parse_siblings(s, **kw):
-    """
-    http://stackoverflow.com/a/26809037
-    """
-    bracket_level = 0
-    current = []
-
-    # trick to remove special-case of trailing chars
-    for c in (s + ","):
-        if c == "," and bracket_level == 0:
-            yield parse_node("".join(current), **kw)
-            current = []
+def _count_spaces(s, offset):
+    count = 0
+    while True:
+        try:
+            c = s[offset]
+        except IndexError:
+            return count
         else:
-            if c == "(":
-                bracket_level += 1
-            elif c == ")":
-                bracket_level -= 1
-            current.append(c)
+            if c.isspace():
+                offset += 1
+                count += 1
+            else:
+                return count
+
+
+def _parse_length(s, offset):
+    count = _count_spaces(s, offset)
+
+    try:
+        c = s[offset + count]
+    except IndexError:
+        return None, count
+    else:
+        if c == ':':
+            digits = []
+            seenDot = False
+            while True:
+                count += 1
+                try:
+                    c = s[offset + count]
+                except IndexError:
+                    break
+                else:
+                    if c.isdigit():
+                        digits.append(c)
+                    elif c == '.' and not seenDot:
+                        seenDot = True
+                        digits.append(c)
+                    else:
+                        break
+            return ''.join(digits), count
+        else:
+            return None, count
+
+
+def _parse_node(s, offset, strip_comments=False, **kw):
+    """
+    Parse a Newick formatted string into a `Node` object.
+
+    :param s: Newick formatted string to parse.
+    :param offset: a 0-based int index into s, indicating where to start parsing.
+    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
+    brackets.
+    :param kw: Keyword arguments are passed through to `Node.create`.
+    :return: `Node` instance.
+    """
+    count = _count_spaces(s, offset)
+    node = Node(**kw)
+
+    if s[offset + count] == '(':
+        # The node has a list of descendents.
+        count += 1
+        while True:
+            child, subcount = _parse_node(s, offset + count,
+                                          strip_comments=strip_comments, **kw)
+            count += subcount
+            node.add_descendant(child)
+
+            count += _count_spaces(s, offset + count)
+
+            try:
+                c = s[offset + count]
+            except IndexError:
+                break
+            else:
+                if c == ',':
+                    count += 1
+                    continue
+                elif c == ')':
+                    count += 1
+                    break
+                else:
+                    raise SyntaxError('In descendants, could not parse %r' %
+                                      s[offset + count:offset + count + 100])
+
+    name, subcount = _parse_name(s, offset + count, node)
+    count += subcount
+    length, subcount = _parse_length(s, offset + count)
+    count += subcount
+
+    node.name = name
+    node.length = length
+
+    return node, count
 
 
 def parse_node(s, strip_comments=False, **kw):
@@ -458,16 +555,22 @@ def parse_node(s, strip_comments=False, **kw):
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: `Node` instance.
     """
-    if strip_comments:
-        s = COMMENT.sub('', s)
-    s = s.strip()
-    parts = s.split(')')
-    if len(parts) == 1:
-        descendants, label = [], s
+
+    node, count = _parse_node(s, 0, strip_comments=strip_comments, **kw)
+    count += _count_spaces(s, count)
+
+    try:
+        c = s[count]
+    except IndexError:
+        if count != len(s):
+            raise ValueError('Newick unexpected count!')
     else:
-        if not parts[0].startswith('('):
-            raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
-        label = parts[-1]
-    name, length = _parse_name_and_length(label)
-    return Node.create(name=name, length=length, descendants=descendants, **kw)
+        if c == ';':
+            count += 1
+            count += _count_spaces(s, count)
+            if count != len(s):
+                print('%d chars unread from input: %r' % (len(s) - count, s[count:]))
+        else:
+            raise ValueError('Newick could not be parsed from %r.' % s[count:])
+
+    return node
