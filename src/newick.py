@@ -1,17 +1,15 @@
-# coding: utf8
 """
 Functionality to read and write the Newick serialization format for trees.
 
 .. seealso:: https://en.wikipedia.org/wiki/Newick_format
 """
-from __future__ import unicode_literals
-import io
 import re
+import pathlib
 
 __version__ = "0.9.3.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
-COMMENT = re.compile('\[[^\]]*\]')
+COMMENT = re.compile(r'\[[^\]]*\]')
 
 
 def length_parser(x):
@@ -412,20 +410,20 @@ def read(fname, encoding='utf8', strip_comments=False, **kw):
     :return: List of Node objects.
     """
     kw['strip_comments'] = strip_comments
-    with io.open(fname, encoding=encoding) as fp:
+    with pathlib.Path(fname).open(encoding=encoding) as fp:
         return load(fp, **kw)
 
 
 def write(tree, fname, encoding='utf8'):
-    with io.open(fname, encoding=encoding, mode='w') as fp:
+    with pathlib.Path(fname).open(encoding=encoding, mode='w') as fp:
         dump(tree, fp)
 
 
 def _parse_name_and_length(s):
-    l = None
+    length = None
     if ':' in s:
-        s, l = s.split(':', 1)
-    return s or None, l or None
+        s, length = s.split(':', 1)
+    return s or None, length or None
 
 
 def _parse_siblings(s, **kw):

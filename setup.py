@@ -1,21 +1,11 @@
-# -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
-
-
-requires = []
-
-
-def read(fname):
-    with open(fname) as fp:
-        content = fp.read()
-    return content
 
 
 setup(
     name='newick',
     version="0.9.3.dev0",
     description='A python module to read and write the Newick format',
-    long_description=read("README.md"),
+    long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author='The Glottobank consortium',
     author_email='forkel@shh.mpg.de',
@@ -24,16 +14,15 @@ setup(
     zip_safe=False,
     keywords='',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy'
     ],

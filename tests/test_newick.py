@@ -1,7 +1,5 @@
-# coding: utf8
-from __future__ import unicode_literals
-import os
 import unittest
+import pathlib
 
 import pytest
 from ddt import ddt, data
@@ -96,14 +94,13 @@ class TestNodeDescendantsFunctionality(unittest.TestCase):
 
 
 def test_read_write(tmpdir):
-    trees = read(os.path.join(
-        os.path.dirname(__file__), 'fixtures', 'tree-glottolog-newick.txt'))
+    trees = read(pathlib.Path(__file__).parent / 'fixtures' / 'tree-glottolog-newick.txt')
     descs = [len(tree.descendants) for tree in trees]
     # The bookkeeping family has 391 languages
     assert descs[0] == 391
     tmp = str(tmpdir.join('test.txt'))
     write(trees, tmp)
-    assert os.path.exists(tmp)
+    assert pathlib.Path(tmp).exists()
     assert [len(tree.descendants) for tree in read(tmp)] == descs
 
 
@@ -148,27 +145,27 @@ def test_Node_ascii_art():
      /-A
 --Ex-|
      |    /-B
-     \-D--|
-          \-C"""
+     \\-D--|
+          \\-C"""
 
     assert loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True, show_internal=False) == """\
     /-A
 ----|
     |   /-B
-    \---|
-        \-C"""
+    \\---|
+        \\-C"""
 
     assert loads('(A,B,C)D;')[0].ascii_art(strict=True, show_internal=False) == """\
     /-A
 ----+-B
-    \-C"""
+    \\-C"""
 
 
 def test_Node_ascii_art_singleton():
     assert loads('((A,B)C)Ex;')[0].ascii_art(strict=True) == """\
           /-A
 --Ex --C--|
-          \-B"""
+          \\-B"""
 
 
 def test_loads():
