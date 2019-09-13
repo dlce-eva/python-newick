@@ -6,7 +6,7 @@ Functionality to read and write the Newick serialization format for trees.
 import re
 import pathlib
 
-__version__ = "0.9.3.dev0"
+__version__ = "1.0.0"
 
 RESERVED_PUNCTUATION = ':;,()'
 COMMENT = re.compile(r'\[[^\]]*\]')
