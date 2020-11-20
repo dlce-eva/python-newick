@@ -1,6 +1,6 @@
 # python-newick
 
-[![Build Status](https://travis-ci.org/glottobank/python-newick.svg?branch=master)](https://travis-ci.org/glottobank/python-newick)
+[![Build Status](https://github.com/glottobank/python-newick/workflows/tests/badge.svg)](https://github.com/glottobank/python-newick/actions?query=workflow%3Atests)
 [![codecov.io](https://codecov.io/github/glottobank/python-newick/coverage.svg?branch=master)](https://codecov.io/github/glottobank/python-newick?branch=master)
 [![PyPI](https://badge.fury.io/py/newick.svg)](https://pypi.org/project/newick)
 
