@@ -1,7 +1,7 @@
 Contributing
 ------------
 
-Fork glottobank/python-newick and install the development environment:
+Fork dlce-eva/python-newick and install the development environment:
 
 ```sh
 $ pip install virtualenv  # might require sudo/admin privileges

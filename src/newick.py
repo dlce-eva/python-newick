@@ -9,7 +9,7 @@ import pathlib
 __version__ = "1.0.1.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
-COMMENT = re.compile(r'\[[^\]]*\]')
+COMMENT = re.compile(r'\[[^]]*]')
 
 
 def length_parser(x):
@@ -56,11 +56,11 @@ class Node(object):
         return self._length_parser(self._length)
 
     @length.setter
-    def length(self, l):
-        if l is None:
-            self._length = l
+    def length(self, length_):
+        if length_ is None:
+            self._length = length_
         else:
-            self._length = self._length_formatter(l)
+            self._length = self._length_formatter(length_)
 
     @classmethod
     def create(cls, name=None, length=None, descendants=None, **kw):
@@ -133,7 +133,7 @@ class Node(object):
         return [char1 + namestr], 0
 
     def ascii_art(self, strict=False, show_internal=True):
-        """
+        r"""
         Return a unicode string representing a tree in ASCII art fashion.
 
         :param strict: Use ASCII characters strictly (for the tree symbols).
@@ -163,7 +163,7 @@ class Node(object):
         }
 
         def normalize(line):
-            m = re.compile('(?<=\u2502)(?P<s>\s+)(?=[\u250c\u2514\u2502])')
+            m = re.compile(r'(?<=\u2502)(?P<s>\s+)(?=[\u250c\u2514\u2502])')
             line = m.sub(lambda m: m.group('s')[1:], line)
             line = re.sub('\u2500\u2502', '\u2500\u2524', line)  # -|
             line = re.sub('\u2502\u2500', '\u251c', line)  # |-
@@ -173,8 +173,8 @@ class Node(object):
                     line = line.replace(u, a)
             return line
         return '\n'.join(
-            normalize(l) for l in self._ascii_art(show_internal=show_internal)[0]
-            if set(l) != {' ', '\u2502'})  # remove lines of only spaces and pipes
+            normalize(line) for line in self._ascii_art(show_internal=show_internal)[0]
+            if set(line) != {' ', '\u2502'})  # remove lines of only spaces and pipes
 
     @property
     def is_leaf(self):
@@ -277,7 +277,7 @@ class Node(object):
             lambda n: n.ancestor.descendants.remove(n),
             # We won't prune the root node, even if it is a leave and requested to
             # be pruned!
-            lambda n: ((not inverse and n in leaves) or
+            lambda n: ((not inverse and n in leaves) or  # noqa: W504
                        (inverse and n.is_leaf and n not in leaves)) and n.ancestor,
             mode="postorder")
 
@@ -288,7 +288,7 @@ class Node(object):
         :param inverse: Specifies whether to remove nodes in the list or not\
                 in the list.
         """
-        self.prune([l for l in self.walk() if l.name in leaf_names], inverse)
+        self.prune([leaf for leaf in self.walk() if leaf.name in leaf_names], inverse)
 
     def remove_redundant_nodes(self, preserve_lengths=True):
         """

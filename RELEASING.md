@@ -2,7 +2,7 @@
 Releasing python-newick
 =======================
 
-Clone glottobank/python-newick and switch to the master branch. Then:
+Clone dlce-eva/python-newick and switch to the master branch. Then:
 
 - Do platform test via tox:
   ```

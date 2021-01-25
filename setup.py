@@ -9,7 +9,7 @@ setup(
     long_description_content_type="text/markdown",
     author='The Glottobank consortium',
     author_email='forkel@shh.mpg.de',
-    url='https://github.com/glottobank/python-newick',
+    url='https://github.com/dlce-eva/python-newick',
     license="Apache 2",
     zip_safe=False,
     keywords='',
@@ -36,7 +36,7 @@ setup(
         ],
         'test': [
             'ddt',
-            'pytest>=3.1',
+            'pytest>=5',
             'pytest-mock',
             'coverage>=4.2',
             'pytest-cov',

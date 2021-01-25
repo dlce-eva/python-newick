@@ -1,7 +1,7 @@
 # python-newick
 
-[![Build Status](https://github.com/glottobank/python-newick/workflows/tests/badge.svg)](https://github.com/glottobank/python-newick/actions?query=workflow%3Atests)
-[![codecov.io](https://codecov.io/github/glottobank/python-newick/coverage.svg?branch=master)](https://codecov.io/github/glottobank/python-newick?branch=master)
+[![Build Status](https://github.com/dlce-eva/python-newick/workflows/tests/badge.svg)](https://github.com/dlce-eva/python-newick/actions?query=workflow%3Atests)
+[![codecov.io](https://codecov.io/github/dlce-eva/python-newick/coverage.svg?branch=master)](https://codecov.io/github/dlce-eva/python-newick?branch=master)
 [![PyPI](https://badge.fury.io/py/newick.svg)](https://pypi.org/project/newick)
 
 
@@ -16,9 +16,9 @@ python package to read and write the
 >>> from newick import loads
 >>> trees = loads('(A,B,(C,D)E)F;')
 >>> trees[0].name
-u'F'
+'F'
 >>> [n.name for n in trees[0].descendants]
-[u'A', u'B', u'E']
+['A', 'B', 'E']
 ```
 
 - From  a `file`-like object:
