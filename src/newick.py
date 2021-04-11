@@ -290,13 +290,16 @@ class Node(object):
         """
         self.prune([leaf for leaf in self.walk() if leaf.name in leaf_names], inverse)
 
-    def remove_redundant_nodes(self, preserve_lengths=True):
+    def remove_redundant_nodes(self, preserve_lengths=True, keep_leaf_name=False):
         """
         Remove all nodes which have only a single child, and attach their
         grandchildren to their parent.  The resulting tree has the minimum
         number of internal nodes required for the number of leaves.
-        :param preserve_lengths: If true, branch lengths of removed nodes are \
+
+        :param preserve_lengths: If `True`, branch lengths of removed nodes are \
         added to those of their children.
+        :param keep_leave_name: If `True`, the name of the leaf on a branch with redundant \
+        nodes will be kept; otherwise, the name of the node closest to the root will be used.
         """
         for n in self.walk(mode='postorder'):
             while n.ancestor and len(n.ancestor.descendants) == 1:
@@ -304,6 +307,8 @@ class Node(object):
                 father = n.ancestor
                 if preserve_lengths:
                     n.length += father.length
+                if keep_leaf_name:
+                    father.name = n.name
 
                 if grandfather:
                     for i, child in enumerate(grandfather.descendants):

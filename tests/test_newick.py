@@ -258,6 +258,14 @@ def test_redundant_node_removal():
     tree.remove_redundant_nodes()
     assert not any([len(n.descendants) == 1 for n in tree.walk()])
 
+    tree = loads("((C)B)A")[0]
+    tree.remove_redundant_nodes(preserve_lengths=False)
+    assert tree.newick == "A"
+
+    tree = loads("((C)B)A")[0]
+    tree.remove_redundant_nodes(preserve_lengths=False, keep_leaf_name=True)
+    assert tree.newick == "C"
+
 
 def test_prune_and_node_removal():
     tree2 = loads("((A:1,B:1):1,C:1)")[0]
