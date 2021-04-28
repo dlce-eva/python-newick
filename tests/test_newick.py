@@ -258,19 +258,22 @@ def test_prune_single_node_tree():
     assert tree.newick == 'A'
 
 
-def test_redundant_node_removal():
-    tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
-    assert len(tree.descendants) == 1
-    tree.remove_redundant_nodes()
-    assert not any([len(n.descendants) == 1 for n in tree.walk()])
-
-    tree = loads("((C)B)A")[0]
-    tree.remove_redundant_nodes(preserve_lengths=False)
-    assert tree.newick == "A"
-
-    tree = loads("((C)B)A")[0]
-    tree.remove_redundant_nodes(preserve_lengths=False, keep_leaf_name=True)
-    assert tree.newick == "C"
+@pytest.mark.parametrize(
+    'newick,kw,result',
+    [
+        ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', dict(), '(B:0.2,(C:0.3,D:0.4)E:0.5)A:0.1'),
+        ('((C)B)A', dict(preserve_lengths=False), 'A'),
+        ('((C)B)A', dict(preserve_lengths=False, keep_leaf_name=True), 'C'),
+        (
+            '((aiw),((aas,(kbt)),((abg),abf)))',
+            dict(preserve_lengths=False, keep_leaf_name=True),
+            '(((aas,kbt),(abf,abg)),aiw)'),
+    ]
+)
+def test_redundant_node_removal(newick, kw, result):
+    tree = loads(newick)[0]
+    tree.remove_redundant_nodes(**kw)
+    assert tree.newick == result
 
 
 def test_prune_and_node_removal():
