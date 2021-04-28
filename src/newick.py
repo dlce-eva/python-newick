@@ -263,32 +263,30 @@ class Node(object):
         """
         return [n.name for n in self.get_leaves()]
 
-    def prune(self, leaves, inverse=False):
+    def prune(self, nodes, inverse=False):
         """
         Remove all those nodes in the specified list, or if inverse=True,
-        remove all those nodes not in the specified list.  The specified nodes
-        must be leaves and distinct from the root node.
+        remove all those nodes not in the specified list. The specified nodes
+        must be distinct from the root node.
 
         :param nodes: A list of Node objects
-        :param inverse: Specifies whether to remove nodes in the list or not\
-                in the list.
+        :param inverse: Specifies whether to remove nodes in the list or not in the list.
         """
         self.visit(
             lambda n: n.ancestor.descendants.remove(n),
             # We won't prune the root node, even if it is a leave and requested to
             # be pruned!
-            lambda n: ((not inverse and n in leaves) or  # noqa: W504
-                       (inverse and n.is_leaf and n not in leaves)) and n.ancestor,
+            lambda n: ((not inverse and n in nodes) or  # noqa: W504
+                       (inverse and n.is_leaf and n not in nodes)) and n.ancestor,
             mode="postorder")
 
-    def prune_by_names(self, leaf_names, inverse=False):
+    def prune_by_names(self, node_names, inverse=False):
         """
         Perform an (inverse) prune, with leaves specified by name.
-        :param node_names: A list of leaaf Node names (strings)
-        :param inverse: Specifies whether to remove nodes in the list or not\
-                in the list.
+        :param node_names: A list of Node names (strings)
+        :param inverse: Specifies whether to remove nodes in the list or not in the list.
         """
-        self.prune([leaf for leaf in self.walk() if leaf.name in leaf_names], inverse)
+        self.prune([n for n in self.walk() if n.name in node_names], inverse)
 
     def remove_redundant_nodes(self, preserve_lengths=True, keep_leaf_name=False):
         """

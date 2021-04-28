@@ -93,14 +93,14 @@ class TestNodeDescendantsFunctionality(unittest.TestCase):
         self.assertListEqual([self.test_descendant], self.test_obj.descendants)
 
 
-def test_read_write(tmpdir):
+def test_read_write(tmp_path):
     trees = read(pathlib.Path(__file__).parent / 'fixtures' / 'tree-glottolog-newick.txt')
     descs = [len(tree.descendants) for tree in trees]
     # The bookkeeping family has 391 languages
     assert descs[0] == 391
-    tmp = str(tmpdir.join('test.txt'))
+    tmp = tmp_path / 'test.txt'
     write(trees, tmp)
-    assert pathlib.Path(tmp).exists()
+    assert tmp.exists()
     assert [len(tree.descendants) for tree in read(tmp)] == descs
 
 
@@ -235,15 +235,21 @@ def test_leaf_functions():
     assert leaf_names == true_names
 
 
-def test_prune():
-    tree = loads('(A,((B,C),(D,E)))')[0]
-    leaves = set(tree.get_leaf_names())
-    prune_nodes = set(["A", "C", "E"])
-    tree.prune_by_names(prune_nodes)
-    assert set(tree.get_leaf_names()) == leaves - prune_nodes
-    tree = loads('((A,B),((C,D),(E,F)))')[0]
-    tree.prune_by_names(prune_nodes, inverse=True)
-    assert set(tree.get_leaf_names()) == prune_nodes
+@pytest.mark.parametrize(
+    'tree,nodes,inverse, result',
+    [
+        ('(A,((B,C),(D,E)))', 'A C E', False, '(B,D)'),
+        ('((A,B),((C,D),(E,F)))', 'A C E', True, '((C,E),A)'),
+        ('(b,(c,(d,(e,(f,g))h)i)a)', 'b c i', True, '(b,(c,i)a)'),
+        ('(b,(c,(d,(e,(f,g))h)i)a)', 'b c i', False, ''),
+        ('(b,(c,(d,(e,(f,g))h)i)a)', 'c i', False, '(b,a)'),
+    ]
+)
+def test_prune(tree, nodes, inverse, result):
+    tree = loads(tree)[0]
+    tree.prune_by_names(nodes.split(), inverse=inverse)
+    tree.remove_redundant_nodes(preserve_lengths=False)
+    assert tree.newick == result
 
 
 def test_prune_single_node_tree():

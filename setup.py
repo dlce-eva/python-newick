@@ -8,7 +8,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author='The Glottobank consortium',
-    author_email='forkel@shh.mpg.de',
+    author_email='robert_forkel@eva.mpg.de',
     url='https://github.com/dlce-eva/python-newick',
     license="Apache 2",
     zip_safe=False,
