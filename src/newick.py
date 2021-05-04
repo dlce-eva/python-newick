@@ -429,11 +429,11 @@ def _parse_name_and_length(s):
     length, comment = None, None
     if ':' in s:
         parts = s.split(':')
-        s = ':'.join(parts[:-1])
-        length = parts[-1]
-    if '[' in s and s.endswith(']'):
+        if ']' not in parts[-1]:  # A ] in length doesn't make sense - the : must be in a comment.
+            s = ':'.join(parts[:-1])
+            length = parts[-1]
+    if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
         s, comment = s.split('[', maxsplit=1)
-        assert comment.endswith(']')
         comment = comment[:-1]
     return s or None, length or None, comment
 
