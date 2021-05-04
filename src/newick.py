@@ -88,6 +88,8 @@ class Node(object):
     def newick(self):
         """The representation of the Node in Newick format."""
         label = self.name or ''
+        if self.comment:
+            label += '[{}]'.format(self.comment)
         if self._length:
             label += ':' + self._length
         descendants = ','.join([n.newick for n in self.descendants])

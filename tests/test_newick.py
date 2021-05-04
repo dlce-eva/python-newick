@@ -95,6 +95,7 @@ class TestNodeDescendantsFunctionality(unittest.TestCase):
 
 def test_read_write(tmp_path):
     trees = read(pathlib.Path(__file__).parent / 'fixtures' / 'tree-glottolog-newick.txt')
+    assert '[' in trees[0].descendants[0].name
     descs = [len(tree.descendants) for tree in trees]
     # The bookkeeping family has 391 languages
     assert descs[0] == 391
@@ -375,18 +376,19 @@ def test_prune_node():
 
 
 def test_with_comments():
-    tree = "(1[x&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
-           "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
-           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
-           "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438," \
-           "2[&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
-           "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
-           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
-           "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438)[y&dmv={1}," \
-           "dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range={0.001,1.336}," \
-           "height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
-           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
-           "length_median=2.182,length_range={1.307,3.236}]"
-    tree = loads(tree)[0]
+    nwk = "(1[x&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
+          "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+          "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+          "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438," \
+          "2[&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
+          "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+          "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+          "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438)[y&dmv={1}," \
+          "dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range={0.001,1.336}," \
+          "height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+          "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+          "length_median=2.182,length_range={1.307,3.236}]"
+    tree = loads(nwk)[0]
     assert tree.comment.startswith('y')
     assert tree.descendants[0].name == '1' and tree.descendants[0].comment.startswith('x')
+    assert tree.newick == nwk
