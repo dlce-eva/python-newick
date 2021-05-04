@@ -10,7 +10,6 @@ __version__ = "1.2.1.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
 COMMENT = re.compile(r'\[[^]]*]')
-NODE_NAME_WITH_COMMENT = re.compile(r'(?P<name>[^(),\[\]]+)\[(?P<comment>[^]]*)]')
 
 
 def length_parser(x):
@@ -373,9 +372,6 @@ def loads(s, strip_comments=False, **kw):
     :return: List of Node objects.
     """
     kw['strip_comments'] = strip_comments
-    #
-    # FIXME: parse comments in a second pass!
-    #
     return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
 
 
