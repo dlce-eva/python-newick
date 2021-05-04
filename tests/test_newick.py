@@ -372,3 +372,21 @@ def test_prune_node():
     t2 = loads(tree)[0]
     t2.prune_by_names(["E"])
     assert t1.newick == t2.newick
+
+
+def test_with_comments():
+    tree = "(1[x&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
+           "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+           "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438," \
+           "2[&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range=" \
+           "{0.001,1.336},height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+           "length_median=2.182,length_range={1.307,3.236}]:1.14538397925438)[y&dmv={1}," \
+           "dmv1=0.260,dmv1_95%_hpd={0.003,0.625},dmv1_median=0.216,dmv1_range={0.001,1.336}," \
+           "height=1.310e-15,height_95%_hpd={0.0,3.552e-15},height_median=0.0," \
+           "height_range={0.0,7.105e-15},length=2.188,length_95%_hpd={1.725,2.634}," \
+           "length_median=2.182,length_range={1.307,3.236}]"
+    tree = loads(tree)[0]
+    assert tree.comment.startswith('y')
+    assert tree.descendants[0].name == '1' and tree.descendants[0].comment.startswith('x')
