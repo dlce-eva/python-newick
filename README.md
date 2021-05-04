@@ -39,6 +39,44 @@ a `list` of `newick.Node` objects.
 >>> trees = read(pathlib.Path('fname'))
 ```
 
+### Supported Newick dialects
+
+The ["Newick specification"](http://biowiki.org/wiki/index.php/Newick_Format) states
+
+> Comments are enclosed in square brackets and may appear anywhere
+
+This has spawned a host of ad-hoc mechanisms to insert additional data into Newick trees.
+
+The `newick` package allows to deal with comments in two ways.
+
+- Ignoring comments:
+  ```python
+  >>> newick.loads('[a comment](a,b)c;', strip_comments=True)[0].newick
+  '(a,b)c'
+  ```
+- Reading comments as node annotations: Several software packages use Newick comments to 
+  store node annotations, e.g. *BEAST, MrBayes or TreeAnnotator. Provided there are no
+  comments in places where they cannot be interpreted as node annotations, `newick` supports
+  reading and writing these annotations:
+  ```python
+  >>> newick.loads('(a[annotation],b)c;')[0].descendants[0].name
+  'a'
+  >>> newick.loads('(a[annotation],b)c;')[0].descendants[0].comment
+  'annotation'
+  >>> newick.loads('(a[annotation],b)c;')[0].newick
+  '(a[annotation],b)c'
+  ```
+
+Note that square brackets inside *quoted labels* will **not** be interpreted as comments
+or annotations:
+```python
+>>> newick.loads("('a[label]',b)c;")[0].descendants[0].name
+"'a[label]'"
+>>> newick.loads("('a[label]',b)c;")[0].newick
+"('a[label]',b)c"
+```
+
+
 ## Writing Newick
 
 In parallel to the read operations there are three functions to serialize a single `Node` object or a `list` of `Node`

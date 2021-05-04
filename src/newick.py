@@ -28,7 +28,7 @@ class Node(object):
     descendants. It further has an ancestor, which is *None* if the node is the
     root node of a tree.
     """
-    def __init__(self, name=None, length=None, **kw):
+    def __init__(self, name=None, length=None, comment=None, **kw):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
@@ -42,6 +42,7 @@ class Node(object):
                 raise ValueError(
                     'Node names or branch lengths must not contain "%s"' % char)
         self.name = name
+        self.comment = comment
         self._length = length
         self.descendants = []
         self.ancestor = None
@@ -63,7 +64,7 @@ class Node(object):
             self._length = self._length_formatter(length_)
 
     @classmethod
-    def create(cls, name=None, length=None, descendants=None, **kw):
+    def create(cls, name=None, length=None, descendants=None, comment=None, **kw):
         """
         Create a new `Node` object.
 
@@ -73,7 +74,7 @@ class Node(object):
         :param kw: Additonal keyword arguments are passed through to `Node.__init__`.
         :return: `Node` instance.
         """
-        node = cls(name=name, length=length, **kw)
+        node = cls(name=name, length=length, comment=comment, **kw)
         for descendant in descendants or []:
             node.add_descendant(descendant)
         return node
@@ -86,6 +87,8 @@ class Node(object):
     def newick(self):
         """The representation of the Node in Newick format."""
         label = self.name or ''
+        if self.comment:
+            label += '[{}]'.format(self.comment)
         if self._length:
             label += ':' + self._length
         descendants = ','.join([n.newick for n in self.descendants])
@@ -423,10 +426,16 @@ def write(tree, fname, encoding='utf8'):
 
 
 def _parse_name_and_length(s):
-    length = None
+    length, comment = None, None
     if ':' in s:
-        s, length = s.split(':', 1)
-    return s or None, length or None
+        parts = s.split(':')
+        if ']' not in parts[-1]:  # A ] in length doesn't make sense - the : must be in a comment.
+            s = ':'.join(parts[:-1])
+            length = parts[-1]
+    if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
+        s, comment = s.split('[', maxsplit=1)
+        comment = comment[:-1]
+    return s or None, length or None, comment
 
 
 def _parse_siblings(s, **kw):
@@ -434,11 +443,12 @@ def _parse_siblings(s, **kw):
     http://stackoverflow.com/a/26809037
     """
     bracket_level = 0
+    square_bracket_level = 0
     current = []
 
     # trick to remove special-case of trailing chars
     for c in (s + ","):
-        if c == "," and bracket_level == 0:
+        if c == "," and bracket_level == 0 and square_bracket_level == 0:
             yield parse_node("".join(current), **kw)
             current = []
         else:
@@ -446,6 +456,10 @@ def _parse_siblings(s, **kw):
                 bracket_level += 1
             elif c == ")":
                 bracket_level -= 1
+            elif c == "[":
+                square_bracket_level += 1
+            elif c == "]":
+                square_bracket_level -= 1
             current.append(c)
 
 
@@ -470,5 +484,5 @@ def parse_node(s, strip_comments=False, **kw):
             raise ValueError('unmatched braces %s' % parts[0][:100])
         descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
         label = parts[-1]
-    name, length = _parse_name_and_length(label)
-    return Node.create(name=name, length=length, descendants=descendants, **kw)
+    name, length, comment = _parse_name_and_length(label)
+    return Node.create(name=name, length=length, comment=comment, descendants=descendants, **kw)
