@@ -24,20 +24,20 @@ a `list` of `newick.Node` objects.
   ```
 
 - Reading from  a `file`-like object:
-```python
->>> import io
->>> from newick import load
->>> with io.open('fname', encoding='utf8') as fp:
-...     trees = load(fp)
-```
+  ```python
+  >>> import io
+  >>> from newick import load
+  >>> with io.open('fname', encoding='utf8') as fp:
+  ...     trees = load(fp)
+  ```
 
 - Reading from a path:
-```python
->>> from newick import read
->>> trees = read('fname')
->>> import pathlib
->>> trees = read(pathlib.Path('fname'))
-```
+  ```python
+  >>> from newick import read
+  >>> trees = read('fname')
+  >>> import pathlib
+  >>> trees = read(pathlib.Path('fname'))
+  ```
 
 ### Supported Newick dialects
 
@@ -93,7 +93,7 @@ A tree may be assembled using the factory methods of the `Node` class:
 
 ## Manipulating trees
 
-- Diyplaying tree topology in the terminal:
+- Displaying tree topology in the terminal:
   ```python
   >>> import newick
   >>> tree = newick.loads('(b,(c,(d,(e,(f,g))h)i)a)')[0]
