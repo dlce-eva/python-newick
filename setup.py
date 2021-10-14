@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='newick',
-    version="1.3.1.dev0",
+    version="1.3.1",
     description='A python module to read and write the Newick format',
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

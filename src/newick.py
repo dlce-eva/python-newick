@@ -6,7 +6,7 @@ Functionality to read and write the Newick serialization format for trees.
 import re
 import pathlib
 
-__version__ = "1.3.1.dev0"
+__version__ = "1.3.1"
 
 RESERVED_PUNCTUATION = ':;,()'
 COMMENT = re.compile(r'\[[^]]*]')
@@ -39,8 +39,7 @@ class Node(object):
         """
         for char in RESERVED_PUNCTUATION:
             if (name and char in name) or (length and char in length):
-                raise ValueError(
-                    'Node names or branch lengths must not contain "%s"' % char)
+                raise ValueError('Node names or branch lengths must not contain "{}"'.format(char))
         self.name = name
         self.comment = comment
         self._length = length
@@ -48,6 +47,7 @@ class Node(object):
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
+        self._colon_before_comment = kw.pop('colon_before_comment', False)
 
     def __repr__(self):
         return 'Node("%s")' % self.name
@@ -86,11 +86,17 @@ class Node(object):
     @property
     def newick(self):
         """The representation of the Node in Newick format."""
+        colon_done = False
         label = self.name or ''
         if self.comment:
+            if self._length and self._colon_before_comment:
+                label += ':'
+                colon_done = True
             label += '[{}]'.format(self.comment)
         if self._length:
-            label += ':' + self._length
+            if not colon_done:
+                label += ':'
+            label += self._length
         descendants = ','.join([n.newick for n in self.descendants])
         if descendants:
             descendants = '(' + descendants + ')'
@@ -426,16 +432,27 @@ def write(tree, fname, encoding='utf8'):
 
 
 def _parse_name_and_length(s):
-    length, comment = None, None
+    length, comment, colon_before_comment = None, None, False
     if ':' in s:
-        parts = s.split(':')
-        if ']' not in parts[-1]:  # A ] in length doesn't make sense - the : must be in a comment.
-            s = ':'.join(parts[:-1])
-            length = parts[-1]
+        # Comments may be placed between ":" and length, or between name and ":"!
+        # In any case, we interpret the first occurrence of ":" as separator for length, i.e.
+        # a ":" in an annotation **before** the length separator will screw things up.
+        before, _, after = s.partition(':')
+        if before.endswith(']'):
+            assert '[' in before and '[' not in after, s
+            s, comment = before[:-1].split('[', maxsplit=1)
+            length = after
+        elif after.startswith('['):
+            assert ']' in after and '[' not in before, s
+            colon_before_comment = True
+            comment, length = after[1:].split(']', maxsplit=1)
+            s = before
+        else:
+            s, length = before, after
     if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
         s, comment = s.split('[', maxsplit=1)
         comment = comment[:-1]
-    return s or None, length or None, comment
+    return s or None, length or None, comment, colon_before_comment
 
 
 def _parse_siblings(s, **kw):
@@ -484,5 +501,11 @@ def parse_node(s, strip_comments=False, **kw):
             raise ValueError('unmatched braces %s' % parts[0][:100])
         descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
         label = parts[-1]
-    name, length, comment = _parse_name_and_length(label)
-    return Node.create(name=name, length=length, comment=comment, descendants=descendants, **kw)
+    name, length, comment, colon_before_comment = _parse_name_and_length(label)
+    return Node.create(
+        name=name,
+        length=length,
+        comment=comment,
+        colon_before_comment=colon_before_comment,
+        descendants=descendants,
+        **kw)
