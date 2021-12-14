@@ -15,8 +15,6 @@ Clone dlce-eva/python-newick and switch to the master branch. Then:
   $ flake8 src
   ```
 
-- Edit `CHANGELOG.md`.
-
 - Change the version to the new version number in
   - `setup.py`
   - `src/newick.py`

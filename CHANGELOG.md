@@ -4,8 +4,12 @@ The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.
 
 ## [Unreleased]
 
-Backwards incompatibility through bug-fix: newick will not (incorrectly) parse
-invalid newick trees anymore, but raise `ValueError`.
+
+## [v1.3.2] - 2021-12-14
+
+- Backwards incompatibility through bug-fix: newick will not (incorrectly) parse
+  invalid newick trees anymore, but raise `ValueError`.
+- Run tests on py 3.10 as well.
 
 
 ## [v1.3.1] - 2021-10-14
