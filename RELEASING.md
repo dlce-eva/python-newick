@@ -12,7 +12,7 @@ Clone dlce-eva/python-newick and switch to the master branch. Then:
 
 - Make sure flake8 passes::
   ```
-  $ flake8
+  $ flake8 src
   ```
 
 - Edit `CHANGELOG.md`.
@@ -20,6 +20,7 @@ Clone dlce-eva/python-newick and switch to the master branch. Then:
 - Change the version to the new version number in
   - `setup.py`
   - `src/newick.py`
+  - and note changes in `CHANGELOG.md`
 
 - Create the release commit:
 ```shell
@@ -35,10 +36,7 @@ git tag -a v<VERSION> -m "<VERSION> release"
 ```shell
 git checkout tags/v<VERSION>
 rm dist/*
-python setup.py sdist
-twine upload dist/*
-rm dist/*
-python setup.py bdist_wheel
+python setup.py sdist bdist_wheel
 twine upload dist/*
 ```
 
