@@ -92,6 +92,11 @@ def test_read_write(tmp_path):
     assert [len(tree.descendants) for tree in read(tmp)] == descs
 
 
+def test_invalid_newick():
+    with pytest.raises(ValueError):
+        _ = loads("(A,B,C),D);")
+
+
 def test_Node():
     with pytest.raises(ValueError):
         Node(name='A)')

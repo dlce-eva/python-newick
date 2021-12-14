@@ -494,6 +494,8 @@ def parse_node(s, strip_comments=False, **kw):
         s = COMMENT.sub('', s)
     s = s.strip()
     parts = s.split(')')
+    if len(parts) != len(s.split('(')):
+        raise ValueError('different number of opening and closing braces')
     if len(parts) == 1:
         descendants, label = [], s
     else:
