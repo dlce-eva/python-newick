@@ -1,8 +1,6 @@
-import unittest
 import pathlib
 
 import pytest
-from ddt import ddt, data
 from newick import loads, dumps, Node, read, write, parse_node
 
 
@@ -24,73 +22,62 @@ def test_empty_node_as_descendants_list(node):
     assert [] == node.descendants
 
 
-@ddt
-class TestNodeBasicFunctionality(unittest.TestCase):
-    @data({"name": "test_name"},
-          {"name": "test_name", "length": "3"})
-    def test_node_with_parameters(self, test_set):
-        if "length" in test_set:
-            proper_length = 3.0
-        else:
-            proper_length = 0.0
-        test_obj = Node(**test_set)
-        self.assertEqual(test_set["name"], test_obj.name)
-        self.assertEqual(proper_length, test_obj.length)
-
-    def test_node_newick_representation_without_length(self):
-        test_obj = Node(name="A")
-        self.assertEqual("A", test_obj.newick)
-
-    def test_node_newick_representation_with_length(self):
-        test_obj = Node(name="A", length="3")
-        self.assertEqual("A:3", test_obj.newick)
-
-    def test_node_parameters_changeability(self):
-        test_obj = Node(name="A")
-        self.assertEqual("A", test_obj.name)
-        test_obj.name = "B"
-        self.assertEqual("B", test_obj.name)
-
-    def test_node_length_changeability(self):
-        test_obj = Node(length="10")
-        self.assertEqual(10, test_obj.length)
-        test_obj.length = "12"
-        self.assertEqual(12, test_obj.length)
+def test_node_newick_representation_without_length():
+    test_obj = Node(name="A")
+    assert test_obj.length == 0.0
+    assert "A" == test_obj.newick
 
 
-@ddt
-class TestNodeDescendantsFunctionality(unittest.TestCase):
-    def setUp(self):
-        self.test_obj = Node("A", "1.0")
-        self.test_descendant = Node("D", "2.0")
-        self.lengths = ["2.0", "3.0", "4.0"]
+def test_node_newick_representation_with_length():
+    test_obj = Node(name="A", length="3")
+    assert pytest.approx(test_obj.length, 3.0)
+    assert "A:3" == test_obj.newick
 
-    @data(["D1.1", "D1.2", "D1.3"], ["D", "", ""], ["", "", ""])
-    def test_node_representation_with_deeper_descendants(self, test_data):
-        """
-        :param test_data: names of descendants
 
-        Procedure:
-        1. Make simple tree with one descendant having two another descendants inside
-        2. Verify if it's newick representation is correct in comparision to parsed
-        "proper_result"
+def test_node_parameters_changeability():
+    test_obj = Node(name="A")
+    assert "A" == test_obj.name
+    test_obj.name = "B"
+    assert "B" == test_obj.name
 
-        :return:
-        """
-        single_nodes_reprs = [
-            "{0}:{1}".format(name, length)
-            for name, length in zip(test_data, self.lengths)]
-        proper_result = "(({1},{2}){0})A:1.0".format(*single_nodes_reprs)
 
-        d1, d2, d3 = [Node(name, length) for name, length in zip(test_data, self.lengths)]
-        d1.add_descendant(d2)
-        d1.add_descendant(d3)
-        self.test_obj.add_descendant(d1)
-        self.assertEqual(proper_result, self.test_obj.newick)
+def test_node_length_changeability():
+    test_obj = Node(length="10")
+    assert 10 == test_obj.length
+    test_obj.length = "12"
+    assert 12 == test_obj.length
 
-    def test_node_as_descendants_list(self):
-        self.test_obj.add_descendant(self.test_descendant)
-        self.assertListEqual([self.test_descendant], self.test_obj.descendants)
+
+@pytest.mark.parametrize(
+    'test_data',
+    [
+       ["D1.1", "D1.2", "D1.3"], ["D", "", ""], ["", "", ""]
+    ]
+)
+def test_node_representation_with_deeper_descendants(test_data):
+    """
+    Procedure:
+    1. Make simple tree with one descendant having two more descendants inside
+    2. Verify if it's newick representation is correct in comparison to parsed "proper_result"
+    """
+    single_nodes_reprs = [
+        "{0}:{1}".format(name, length)
+        for name, length in zip(test_data, ["2.0", "3.0", "4.0"])]
+    proper_result = "(({1},{2}){0})A:1.0".format(*single_nodes_reprs)
+
+    d1, d2, d3 = [Node(name, length) for name, length in zip(test_data, ["2.0", "3.0", "4.0"])]
+    d1.add_descendant(d2)
+    d1.add_descendant(d3)
+    test_obj = Node("A", "1.0")
+    test_obj.add_descendant(d1)
+    assert proper_result == test_obj.newick
+
+
+def test_node_as_descendants_list():
+    test_obj = Node("A", "1.0")
+    desc = Node("D", "2.0")
+    test_obj.add_descendant(desc)
+    assert [desc], test_obj.descendants
 
 
 def test_read_write(tmp_path):
@@ -232,7 +219,7 @@ def test_clone():
 def test_leaf_functions():
     tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
     leaf_names = set(tree.get_leaf_names())
-    true_names = set(["B", "C", "D"])
+    true_names = {"B", "C", "D"}
     assert leaf_names == true_names
 
 
