@@ -4,6 +4,7 @@ Functionality to read and write the Newick serialization format for trees.
 .. seealso:: https://en.wikipedia.org/wiki/Newick_format
 """
 import re
+import typing
 import pathlib
 
 __version__ = "1.3.3.dev0"
@@ -28,7 +29,11 @@ class Node(object):
     descendants. It further has an ancestor, which is *None* if the node is the
     root node of a tree.
     """
-    def __init__(self, name=None, length=None, comment=None, **kw):
+    def __init__(self,
+                 name: typing.Optional[str] = None,
+                 length: typing.Optional[float] = None,
+                 comment: typing.Optional[str] = None,
+                 **kw):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
@@ -53,18 +58,23 @@ class Node(object):
         return 'Node("%s")' % self.name
 
     @property
-    def length(self):
+    def length(self) -> float:
         return self._length_parser(self._length)
 
     @length.setter
-    def length(self, length_):
+    def length(self, length_: float):
         if length_ is None:
             self._length = length_
         else:
             self._length = self._length_formatter(length_)
 
     @classmethod
-    def create(cls, name=None, length=None, descendants=None, comment=None, **kw):
+    def create(cls,
+               name: typing.Optional[str] = None,
+               length: typing.Optional[float] = None,
+               descendants: typing.Optional[typing.Iterable] = None,
+               comment: typing.Optional[str] = None,
+               **kw) -> 'Node':
         """
         Create a new `Node` object.
 
@@ -79,12 +89,12 @@ class Node(object):
             node.add_descendant(descendant)
         return node
 
-    def add_descendant(self, node):
+    def add_descendant(self, node: 'Node'):
         node.ancestor = self
         self.descendants.append(node)
 
     @property
-    def newick(self):
+    def newick(self) -> str:
         """The representation of the Node in Newick format."""
         colon_done = False
         label = self.name or ''
@@ -141,7 +151,7 @@ class Node(object):
             return result, mid
         return [char1 + namestr], 0
 
-    def ascii_art(self, strict=False, show_internal=True):
+    def ascii_art(self, strict: bool = False, show_internal: bool = True) -> str:
         r"""
         Return a unicode string representing a tree in ASCII art fashion.
 
@@ -186,14 +196,14 @@ class Node(object):
             if set(line) != {' ', '\u2502'})  # remove lines of only spaces and pipes
 
     @property
-    def is_leaf(self):
+    def is_leaf(self) -> bool:
         return not bool(self.descendants)
 
     @property
-    def is_binary(self):
+    def is_binary(self) -> bool:
         return all([len(n.descendants) in (0, 2) for n in self.walk()])
 
-    def walk(self, mode=None):
+    def walk(self, mode=None) -> typing.Generator['Node', None, None]:
         """
         Traverses the (sub)tree rooted at self, yielding each visited Node.
 
@@ -213,7 +223,10 @@ class Node(object):
                 for n in node.walk():
                     yield n
 
-    def visit(self, visitor, predicate=None, **kw):
+    def visit(self,
+              visitor: typing.Callable[['Node'], None],
+              predicate: typing.Optional[typing.Callable[['Node'], bool]] = None,
+              **kw):
         """
         Apply a function to matching nodes in the (sub)tree rooted at self.
 
@@ -245,7 +258,7 @@ class Node(object):
             else:
                 stack.append(descendants[0])
 
-    def get_leaves(self):
+    def get_leaves(self) -> typing.List['Node']:
         """
         Get all the leaf nodes of the subtree descending from this node.
 
@@ -253,7 +266,7 @@ class Node(object):
         """
         return [n for n in self.walk() if n.is_leaf]
 
-    def get_node(self, label):
+    def get_node(self, label: str) -> 'Node':
         """
         Gets the specified node by name.
 
@@ -263,7 +276,7 @@ class Node(object):
             if n.name == label:
                 return n
 
-    def get_leaf_names(self):
+    def get_leaf_names(self) -> typing.List[str]:
         """
         Get the names of all the leaf nodes of the subtree descending from
         this node.
@@ -272,7 +285,7 @@ class Node(object):
         """
         return [n.name for n in self.get_leaves()]
 
-    def prune(self, nodes, inverse=False):
+    def prune(self, nodes: typing.List['Node'], inverse: bool = False):
         """
         Remove all those nodes in the specified list, or if inverse=True,
         remove all those nodes not in the specified list. The specified nodes
@@ -289,7 +302,7 @@ class Node(object):
                        (inverse and n.is_leaf and n not in nodes)) and n.ancestor,
             mode="postorder")
 
-    def prune_by_names(self, node_names, inverse=False):
+    def prune_by_names(self, node_names: typing.List[str], inverse: bool = False):
         """
         Perform an (inverse) prune, with leaves specified by name.
         :param node_names: A list of Node names (strings)
@@ -297,7 +310,7 @@ class Node(object):
         """
         self.prune([n for n in self.walk() if n.name in node_names], inverse)
 
-    def remove_redundant_nodes(self, preserve_lengths=True, keep_leaf_name=False):
+    def remove_redundant_nodes(self, preserve_lengths: bool = True, keep_leaf_name: bool = False):
         """
         Remove all nodes which have only a single child, and attach their
         grandchildren to their parent.  The resulting tree has the minimum
@@ -367,7 +380,7 @@ class Node(object):
         self.visit(lambda n: setattr(n, 'length', None))
 
 
-def loads(s, strip_comments=False, **kw):
+def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted string.
 
@@ -381,7 +394,7 @@ def loads(s, strip_comments=False, **kw):
     return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
 
 
-def dumps(trees):
+def dumps(trees: typing.Union[Node, typing.Iterable[Node]]) -> str:
     """
     Serialize a list of trees in Newick format.
 
@@ -393,7 +406,7 @@ def dumps(trees):
     return ';\n'.join([tree.newick for tree in trees]) + ';'
 
 
-def load(fp, strip_comments=False, **kw):
+def load(fp, strip_comments=False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from an open Newick formatted file.
 
@@ -407,11 +420,11 @@ def load(fp, strip_comments=False, **kw):
     return loads(fp.read(), **kw)
 
 
-def dump(tree, fp):
+def dump(tree: typing.Union[Node, typing.Iterable[Node]], fp):
     fp.write(dumps(tree))
 
 
-def read(fname, encoding='utf8', strip_comments=False, **kw):
+def read(fname, encoding='utf8', strip_comments=False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted file.
 
@@ -426,7 +439,7 @@ def read(fname, encoding='utf8', strip_comments=False, **kw):
         return load(fp, **kw)
 
 
-def write(tree, fname, encoding='utf8'):
+def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8'):
     with pathlib.Path(fname).open(encoding=encoding, mode='w') as fp:
         dump(tree, fp)
 
