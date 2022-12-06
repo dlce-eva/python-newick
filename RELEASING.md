@@ -16,7 +16,7 @@ Clone dlce-eva/python-newick and switch to the master branch. Then:
   ```
 
 - Change the version to the new version number in
-  - `setup.py`
+  - `setup.cfg`
   - `src/newick.py`
   - and note changes in `CHANGELOG.md`
 
@@ -34,7 +34,7 @@ git tag -a v<VERSION> -m "<VERSION> release"
 ```shell
 git checkout tags/v<VERSION>
 rm dist/*
-python setup.py sdist bdist_wheel
+python -m build -n
 twine upload dist/*
 ```
 
@@ -45,7 +45,7 @@ git push --tags origin
 ```
 
 - Append `.dev0` to the version number for the new development cycle in
-  - `setup.py`
+  - `setup.cfg`
   - `src/newick.py`
 
 - Commit/push the version change:

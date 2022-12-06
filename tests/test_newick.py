@@ -30,7 +30,7 @@ def test_node_newick_representation_without_length():
 
 def test_node_newick_representation_with_length():
     test_obj = Node(name="A", length="3")
-    assert pytest.approx(test_obj.length, 3.0)
+    assert pytest.approx(test_obj.length) == 3.0
     assert "A:3" == test_obj.newick
 
 
