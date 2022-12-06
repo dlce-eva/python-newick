@@ -2,10 +2,11 @@
 
 The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.4.0] - 2022-12-06
 
 - Drop py3.6 compatibility
 - Run tests on py3.11
+- Added type hints.
 
 
 ## [v1.3.2] - 2021-12-14
