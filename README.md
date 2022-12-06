@@ -1,7 +1,6 @@
 # python-newick
 
 [![Build Status](https://github.com/dlce-eva/python-newick/workflows/tests/badge.svg)](https://github.com/dlce-eva/python-newick/actions?query=workflow%3Atests)
-[![codecov.io](https://codecov.io/github/dlce-eva/python-newick/coverage.svg?branch=master)](https://codecov.io/github/dlce-eva/python-newick?branch=master)
 [![PyPI](https://badge.fury.io/py/newick.svg)](https://pypi.org/project/newick)
 
 python package to read and write the 
