@@ -9,6 +9,11 @@ def node():
     return Node()
 
 
+@pytest.fixture
+def fixture_dir():
+   return pathlib.Path(__file__).parent / 'fixtures'
+
+
 def test_empty_node(node):
     assert node.name is None
     assert node.length == 0.0
@@ -78,8 +83,8 @@ def test_node_as_descendants_list():
     assert [desc], test_obj.descendants
 
 
-def test_read_write(tmp_path):
-    trees = read(pathlib.Path(__file__).parent / 'fixtures' / 'tree-glottolog-newick.txt')
+def test_read_write(tmp_path, fixture_dir):
+    trees = read(fixture_dir / 'tree-glottolog-newick.txt')
     assert '[' in trees[0].descendants[0].name
     descs = [len(tree.descendants) for tree in trees]
     # The bookkeeping family has 391 languages
@@ -121,6 +126,11 @@ def test_Node():
 def test_repr():
     n = Node(name="A")
     assert repr(n) == 'Node("A")'
+
+
+def test_quoted_label():
+    tree = loads(r"(A,B)'C\':''D':1.3;")[0]
+    assert tree.unquoted_name == "C':'D"
 
 
 def test_Node_custom_length():
@@ -346,6 +356,14 @@ def test_comments():
     assert len(list(tree.walk())) == 3
 
 
+def test_quotes():
+    trees = loads("('A;B',C)D;")
+    assert len(trees) == 1
+    trees = loads("('A:B':2,C:3)D:4;")
+    assert trees[0].descendants[0].unquoted_name == 'A:B'
+    assert pytest.approx(trees[0].descendants[0].length) == 2.0
+
+
 def test_get_node():
     tree = loads('(A,B,(C,D)E)F;')[0]
     assert tree.get_node("A").name == 'A'
@@ -436,3 +454,9 @@ def test_with_comments_beast():
     assert tree.descendants[0].name is None
     assert tree.descendants[0].length == pytest.approx(301.4581721015056)
     assert tree.newick == nwk
+
+
+def test_gtdb_tree(fixture_dir):
+    tree = read(fixture_dir / 'ar53_r207.tree')[0]
+    nodes = [node.name for node in tree.walk() if node.name]
+    assert nodes[-9] == "'100.0:p__Undinarchaeota; c__Undinarchaeia; o__Undinarchaeales'"

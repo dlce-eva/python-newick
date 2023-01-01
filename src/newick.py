@@ -11,6 +11,8 @@ __version__ = "1.4.1.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
 COMMENT = re.compile(r'\[[^]]*]')
+QUOTE = "'"
+ESCAPE = {"'", "\\"}
 
 
 def length_parser(x):
@@ -43,7 +45,7 @@ class Node(object):
             Node as Newick string.
         """
         for char in RESERVED_PUNCTUATION:
-            if (name and char in name) or (length and char in length):
+            if char not in {':', ';'} and ((name and char in name) or (length and char in length)):
                 raise ValueError('Node names or branch lengths must not contain "{}"'.format(char))
         self.name = name
         self.comment = comment
@@ -56,6 +58,15 @@ class Node(object):
 
     def __repr__(self):
         return 'Node("%s")' % self.name
+
+    @property
+    def unquoted_name(self):
+        n = self.name
+        if n.startswith(QUOTE) and n.endswith(QUOTE):
+            n = n[1:-1]
+        for esc in ESCAPE:
+            n = n.replace(esc + QUOTE, QUOTE)
+        return n
 
     @property
     def length(self) -> float:
@@ -380,6 +391,48 @@ class Node(object):
         self.visit(lambda n: setattr(n, 'length', None))
 
 
+def _quoted(s):
+    """
+    :return: A pair (quoted (starting) part of s, remaining string).
+    """
+    assert s.startswith(QUOTE)
+    chars, doublequote = [], False
+    for i, c in enumerate(s[1:], start=1):
+        chars.append(c)
+        if c in ESCAPE:
+            if c == QUOTE and doublequote:
+                doublequote = False
+            elif i < len(s) - 1 and s[i + 1] == QUOTE:
+                doublequote = True
+            elif c == QUOTE:
+                return QUOTE + ''.join(chars), s[i + 1:]
+    raise ValueError("Improper quoting")  # pragma: no cover
+
+
+def iter_subtrees(s: str) -> typing.Generator[str, None, None]:
+    """
+    Yields semicolon-separated subtrees from a string in Newick format.
+
+    .. note:: We make sure to ignore semicolons in quoted node labels.
+    """
+    st, quoted, doublequote = [], False, False
+    for i, c in enumerate(s):
+        if c in ESCAPE:
+            if c == QUOTE and doublequote:
+                doublequote = False
+            elif i < len(s) - 1 and s[i + 1] == QUOTE:
+                doublequote = True
+            elif c == QUOTE:
+                quoted = not quoted
+        if c == ';' and not quoted:
+            yield ''.join(st)
+            st = []
+        else:
+            st.append(c)
+    if st:
+        yield ''.join(st)
+
+
 def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted string.
@@ -391,7 +444,7 @@ def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     :return: List of Node objects.
     """
     kw['strip_comments'] = strip_comments
-    return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
+    return [parse_node(ss.strip(), **kw) for ss in iter_subtrees(s.strip())]
 
 
 def dumps(trees: typing.Union[Node, typing.Iterable[Node]]) -> str:
@@ -445,7 +498,11 @@ def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8
 
 
 def _parse_name_and_length(s):
-    length, comment, colon_before_comment = None, None, False
+    length, comment, colon_before_comment, quoted = None, None, False, ''
+    if s.startswith("'"):
+        # Make sure we only start looking for branch lengths after the quoted node label.
+        quoted, s = _quoted(s)
+
     if ':' in s:
         # Comments may be placed between ":" and length, or between name and ":"!
         # In any case, we interpret the first occurrence of ":" as separator for length, i.e.
@@ -465,7 +522,7 @@ def _parse_name_and_length(s):
     if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
         s, comment = s.split('[', maxsplit=1)
         comment = comment[:-1]
-    return s or None, length or None, comment, colon_before_comment
+    return (quoted + s) if quoted or s else None, length or None, comment, colon_before_comment
 
 
 def _parse_siblings(s, **kw):
