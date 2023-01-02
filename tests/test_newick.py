@@ -1,7 +1,8 @@
+import time
 import pathlib
 
 import pytest
-from newick import loads, dumps, Node, read, write, parse_node
+from newick import loads, dumps, Node, read, write, parse_node, iter_chunks, REPLACEMENT
 
 
 @pytest.fixture
@@ -14,9 +15,51 @@ def fixture_dir():
    return pathlib.Path(__file__).parent / 'fixtures'
 
 
+@pytest.mark.parametrize(
+    's,first,length',
+    [
+        ("", "", 1),
+        (":", "", 2),
+        ("':':", "':'", 2),
+        ("''':':", "''':'", 2),
+        ("''':\\'':", "''':\\''", 2),
+    ]
+)
+def test_iter_chunks(s, first, length):
+    res = list(iter_chunks(s, separator=':'))
+    assert res[0][0] == first and len(res) == length
+
+
+def test_iter_chunks_invalid():
+    with pytest.raises(AssertionError):
+        next(iter_chunks("'''", ':'))
+
+
+def test_iter_chunks_replace():
+    res = list(iter_chunks("',',", ",", replace_separator=True))
+    assert REPLACEMENT in res[0][0] and len(res) == 2
+
+
 def test_empty_node(node):
     assert node.name is None
     assert node.length == 0.0
+
+
+def test_Node_name():
+    with pytest.raises(ValueError):
+        Node("()")
+    n = Node("a'b", auto_quote=True)
+    assert n.name == "'a''b'"
+    assert n.unquoted_name == "a'b"
+    n.name = ":"
+    assert n.name == "':'"
+    n.name = 'A'
+    assert n.name == n.unquoted_name
+
+
+def test_Node_length():
+    with pytest.raises(ValueError):
+        Node(None, length=':')
 
 
 def test_empty_node_newick_representation(node):
@@ -84,7 +127,16 @@ def test_node_as_descendants_list():
 
 
 def test_read_write(tmp_path, fixture_dir):
+    t0 = time.time()
     trees = read(fixture_dir / 'tree-glottolog-newick.txt')
+    tslow = time.time() - t0
+
+    t0 = time.time()
+    trees2 = read(fixture_dir / 'tree-glottolog-newick-noquotes.txt')
+    tfast = time.time() - t0
+    # Make sure faster parsing is used for trees with no quoted node labels.
+    assert len(trees) == len(trees2) and tfast < tslow / 4
+
     assert '[' in trees[0].descendants[0].name
     descs = [len(tree.descendants) for tree in trees]
     # The bookkeeping family has 391 languages
@@ -129,8 +181,8 @@ def test_repr():
 
 
 def test_quoted_label():
-    tree = loads(r"(A,B)'C\':''D':1.3;")[0]
-    assert tree.unquoted_name == "C':'D"
+    tree = loads(r"(A,B)'C,\':''D':1.3;")[0]
+    assert tree.unquoted_name == "C,':'D"
 
 
 def test_Node_custom_length():

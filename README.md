@@ -40,6 +40,31 @@ a `list` of `newick.Node` objects.
 
 ### Supported Newick dialects
 
+#### Quoted node labels
+
+Node labels in Newick may be quoted (i.e. enclosed in single quotes `'`) to make it possible to
+add characters which are otherwise reserved to names. The `newick` package supports quoted labels,
+but this comes at the price far slower reading (since all relevant Newick syntax must be detected
+in a quote-aware way).
+
+```python
+>>> from newick import loads
+>>> print(loads("('A:B','C''D')'E(F)'")[0].ascii_art())
+         ┌─'A:B'
+──'E(F)'─┤
+         └─'C''D'
+```
+
+When creating Newick trees programmatically, names can be quoted (if necessary) automatically:
+```python
+>>> from newick import Node
+>>> print(Node("A(F')", auto_quote=True).name)
+'A(F'')'
+>>> print(Node("A(F')", auto_quote=True).unquoted_name)
+A(F')
+```
+
+
 #### Additional information in comments
 
 The ["Newick specification"](http://biowiki.org/wiki/index.php/Newick_Format) states
@@ -88,20 +113,6 @@ or annotations:
 "'a[label]'"
 >>> newick.loads("('a[label]',b)c;")[0].newick
 "('a[label]',b)c"
-```
-
-
-#### Additional information in quoted node labels
-
-The [Genome Taxonomy Database](https://gtdb.ecogenomic.org/) releases trees in Newick format where additional
-information is encoded using custom markup in quoted node labels. Notably, these node labels may contain `;` - which
-is used to separate subtrees in a Newick string with multiple tree - and `:` - which separates node labels and branch
-lengths in Newick. The `newick` package supports reading such Newick correctly:
-```python
->>> from newick import loads
->>> trees = loads("('A; B: 4': 5)C;(D,E)F;")
->>> trees[0].descendants[0].unquoted_name
-'A; B: 4'
 ```
 
 
