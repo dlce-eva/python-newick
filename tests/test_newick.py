@@ -1,8 +1,7 @@
-import time
 import pathlib
 
 import pytest
-from newick import loads, dumps, Node, read, write, parse_node, iter_chunks, REPLACEMENT
+from newick import loads, dumps, Node, read, write
 
 
 @pytest.fixture
@@ -13,31 +12,6 @@ def node():
 @pytest.fixture
 def fixture_dir():
    return pathlib.Path(__file__).parent / 'fixtures'
-
-
-@pytest.mark.parametrize(
-    's,first,length',
-    [
-        ("", "", 1),
-        (":", "", 2),
-        ("':':", "':'", 2),
-        ("''':':", "''':'", 2),
-        ("''':\\'':", "''':\\''", 2),
-    ]
-)
-def test_iter_chunks(s, first, length):
-    res = list(iter_chunks(s, separator=':'))
-    assert res[0][0] == first and len(res) == length
-
-
-def test_iter_chunks_invalid():
-    with pytest.raises(AssertionError):
-        next(iter_chunks("'''", ':'))
-
-
-def test_iter_chunks_replace():
-    res = list(iter_chunks("',',", ",", replace_separator=True))
-    assert REPLACEMENT in res[0][0] and len(res) == 2
 
 
 def test_empty_node(node):
@@ -127,15 +101,7 @@ def test_node_as_descendants_list():
 
 
 def test_read_write(tmp_path, fixture_dir):
-    t0 = time.time()
     trees = read(fixture_dir / 'tree-glottolog-newick.txt')
-    tslow = time.time() - t0
-
-    t0 = time.time()
-    trees2 = read(fixture_dir / 'tree-glottolog-newick-noquotes.txt')
-    tfast = time.time() - t0
-    # Make sure faster parsing is used for trees with no quoted node labels.
-    assert len(trees) == len(trees2) and tfast < tslow / 4
 
     assert '[' in trees[0].descendants[0].name
     descs = [len(tree.descendants) for tree in trees]
@@ -145,11 +111,6 @@ def test_read_write(tmp_path, fixture_dir):
     write(trees, tmp)
     assert tmp.exists()
     assert [len(tree.descendants) for tree in read(tmp)] == descs
-
-
-def test_invalid_newick():
-    with pytest.raises(ValueError):
-        _ = loads("(A,B,C),D);")
 
 
 def test_Node():
@@ -180,9 +141,74 @@ def test_repr():
     assert repr(n) == 'Node("A")'
 
 
-def test_quoted_label():
-    tree = loads(r"(A,B)'C,\':''D':1.3;")[0]
-    assert tree.unquoted_name == "C,':'D"
+#
+# FIXME: more tests here! empty node names, empty length, comments in quotes, commas, ...
+# whitespace ...
+#
+@pytest.mark.parametrize(
+    's,assertion',
+    [
+        ("", lambda r: r == []),
+        ("A", lambda r: r[0].name == 'A'),
+        ("A;", lambda r: r[-1].name == 'A'),
+        ("A  ;", lambda r: r[-1].name == 'A'),
+        ("'A[noc]'", lambda r: r[0].name == "'A[noc]'"),
+        ("'A(B'", lambda r: r[0].name == "'A(B'"),
+        ("'A[noc'[c]", lambda r: r[0].comment == "c"),
+        ("'A[noc]'[c(a)]", lambda r: r[0].comment == "c(a)"),
+        (r"(A,B)'C ,\':''D':1.3;", lambda r: r[0].unquoted_name == "C ,':'D"),
+        (
+            '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];',
+            lambda r: r[0].name == 'C' and r[0].comment == '% '),
+        (
+            '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];',
+            lambda r: r[0].comments == ['% ', '% ', '%  setBetweenBits = selected ']),
+        ("('A;B',C)D;", lambda r: len(r) == 1),
+        ("('A:B':2,C:3)D:4;", lambda r: r[0].descendants[0].unquoted_name == 'A:B'),
+        ("('A:B':2,C:3)D:4;", lambda r: pytest.approx(r[0].descendants[0].length) == 2.0),
+        # parse examples from https://en.wikipedia.org/wiki/Newick_format
+        ('(,,(,));', lambda r: r[0].name is None),
+        ('(,,(,));', lambda r: r[0].descendants[0].length == 0.0),
+        ('(,,(,));', lambda r: len(r[0].descendants) == 3),
+        ('(A,B,(C,D));', lambda r: r[0].name is None),
+        ('(A,B,(C,D));', lambda r: len(r[0].descendants) == 3),
+        ('(A,B,(C,D)E)Fäß;', lambda r: r[0].name == 'Fäß'),
+        ('(:0.1,:0.2,(:0.3,:0.4):0.5);', lambda r: r[0].descendants[0].length == 0.1),
+        ('(:0.1,:0.2,(:0.3,:0.4):0.5);', lambda r: len(r[0].descendants) == 3),
+        ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: r[0].name == 'A'),
+        ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: r[0].descendants[-1].length == 0.1),
+        ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: r[0].name == 'A'),
+        ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: len(r[0].descendants) == 1),
+    ]
+)
+def test_quoting_and_comments(s, assertion):
+    assert assertion(loads(s))
+
+
+def test_comments():
+    t = '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];'
+    tree = loads(t, strip_comments=True)[0]
+    assert len(list(tree.walk())) == 3 and tree.comment is None
+
+
+@pytest.mark.parametrize(
+    's',
+    [
+        '((A)C;',
+        "(A,B,C),D);",
+        '((A)C;D)',
+        '(),;',
+        ');',
+        '(A,B)C[abc',
+        '(A,B)C[abc]]',
+        "(A,B)'C",
+        "(A B)C;"
+        "('AB'G,D)C;"
+    ]
+)
+def test_invalid(s):
+    with pytest.raises(ValueError):
+        loads(s)
 
 
 def test_Node_custom_length():
@@ -221,39 +247,6 @@ def test_Node_ascii_art_singleton():
           \\-B"""
 
 
-def test_loads():
-    """parse examples from https://en.wikipedia.org/wiki/Newick_format"""
-
-    with pytest.raises(ValueError):
-        loads('(),;')
-
-    with pytest.raises(ValueError):
-        loads(');')
-
-    root = loads('(,,(,));')[0]
-    assert root.name is None
-    assert root.descendants[0].length == 0.0
-    assert len(root.descendants) == 3
-
-    root = loads('(A,B,(C,D));')[0]
-    assert root.name is None
-    assert len(root.descendants) == 3
-
-    root = loads('(A,B,(C,D)E)Fäß;')[0]
-    assert root.name == 'Fäß'
-    assert len(root.descendants) == 3
-
-    root = loads('(:0.1,:0.2,(:0.3,:0.4):0.5);')[0]
-    assert root.name is None
-    assert root.descendants[0].length == 0.1
-    assert len(root.descendants) == 3
-
-    root = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
-    assert root.name == 'A'
-    assert root.descendants[-1].length == 0.1
-    assert len(root.descendants) == 1
-
-
 def test_dumps(*trees):
     for ex in [
         '(,,(,));',
@@ -270,7 +263,7 @@ def test_clone():
     This test illustrates how a tree can be assembled programmatically.
     """
     newick = '(A,B,(C,D)E)F'
-    tree1 = parse_node(newick)
+    tree1 = loads(newick)[0]
 
     def clone_node(n):
         c = Node(name=n.name)
@@ -400,22 +393,6 @@ def test_singletons():
     assert len(list(tree.walk())) == 9
 
 
-def test_comments():
-    t = '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];'
-    with pytest.raises(ValueError):
-        loads(t)
-    tree = loads(t, strip_comments=True)[0]
-    assert len(list(tree.walk())) == 3
-
-
-def test_quotes():
-    trees = loads("('A;B',C)D;")
-    assert len(trees) == 1
-    trees = loads("('A:B':2,C:3)D:4;")
-    assert trees[0].descendants[0].unquoted_name == 'A:B'
-    assert pytest.approx(trees[0].descendants[0].length) == 2.0
-
-
 def test_get_node():
     tree = loads('(A,B,(C,D)E)F;')[0]
     assert tree.get_node("A").name == 'A'
@@ -450,7 +427,8 @@ def test_with_comments():
           "length_median=2.182,length_range={1.307,3.236}]"
     tree = loads(nwk)[0]
     assert tree.comment.startswith('y')
-    assert tree.descendants[0].name == '1' and tree.descendants[0].comment.startswith('x')
+    assert tree.descendants[0].name == '1'
+    assert tree.descendants[0].comment[:47] == 'x&dmv={1},dmv1=0.260,dmv1_95%_hpd={0.003,0.625}'
     assert tree.newick == nwk
 
 

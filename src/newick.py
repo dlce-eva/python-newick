@@ -6,14 +6,15 @@ Functionality to read and write the Newick serialization format for trees.
 import re
 import typing
 import pathlib
+import itertools
+import collections
+import dataclasses
 
 __version__ = "1.4.1.dev0"
 
 RESERVED_PUNCTUATION = ':;,()'
-COMMENT = re.compile(r'\[[^]]*]')
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
-REPLACEMENT = '\uFFFD'
 
 
 def length_parser(x):
@@ -36,6 +37,7 @@ class Node(object):
                  name: typing.Optional[str] = None,
                  length: typing.Optional[typing.Union[str, float]] = None,
                  comment: typing.Optional[str] = None,
+                 comments: typing.Optional[list] = None,
                  auto_quote: bool = False,
                  **kw):
         """
@@ -48,19 +50,18 @@ class Node(object):
             `length_formatter`: Custom formatter for the branch length when formatting a\
             Node as Newick string.
         """
-        if isinstance(length, str):
-            for char in RESERVED_PUNCTUATION:
-                if char in length:
-                    raise ValueError('Branch lengths must not contain "{}"'.format(char))
         self._auto_quote = auto_quote
         self.name = name
         self.comment = comment
-        self._length = length
+        if not comment and comments:
+            self.comment = comments[0]
+        self.comments = comments or []
         self.descendants = []
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
         self._colon_before_comment = kw.pop('colon_before_comment', False)
+        self.length = length
 
     @property
     def name(self):
@@ -79,6 +80,8 @@ class Node(object):
             for char in RESERVED_PUNCTUATION:
                 if char in n:
                     raise ValueError('Node names must not contain "{}"'.format(char))
+            if re.search(r'\s+', n):
+                raise ValueError('Whitespace may not appear in unquoted strings')
         self._name = n
 
     def __repr__(self):
@@ -102,6 +105,12 @@ class Node(object):
         if length_ is None:
             self._length = length_
         else:
+            if isinstance(length_, str):
+                for char in RESERVED_PUNCTUATION:
+                    if char in length_:
+                        raise ValueError('Branch lengths must not contain "{}"'.format(char))
+                if re.search(r'\s+', length_):
+                    raise ValueError('Whitespace may not appear in length')
             self._length = self._length_formatter(length_)
 
     @classmethod
@@ -416,42 +425,6 @@ class Node(object):
         self.visit(lambda n: setattr(n, 'length', None))
 
 
-def iter_chunks(
-        s: str,
-        separator: str,
-        count: typing.Optional[str] = None,
-        replace_separator: bool = False,
-) -> typing.Generator[typing.Tuple[str, int, bool], None, None]:
-    """
-    Split a string at `separator`s appearing outside of quotes.
-
-    .. note:: Improper quoting may not be detected if the generator is not fully consumed!
-    """
-    i, chunk, inquote, doublequote, hasquote, occ = -1, [], False, False, False, 0
-    for i, c in enumerate(s):
-        if c == separator and not inquote:
-            yield ''.join(chunk), i, hasquote, occ
-            chunk, hasquote, occ = [], False, 0
-            continue
-        if c == QUOTE:
-            hasquote = True
-        if count and c == count and not inquote:
-            occ += 1
-        chunk.append(c if c != separator or not replace_separator else REPLACEMENT)
-        if c == QUOTE and not inquote:
-            inquote = True
-        elif c == QUOTE and inquote and not doublequote:
-            inquote = False
-        elif c in ESCAPE:
-            if c == QUOTE and doublequote:
-                doublequote = False
-            elif i < len(s) - 1 and s[i + 1] == QUOTE:
-                doublequote = True
-
-    assert not inquote, "Improper quoting"
-    yield ''.join(chunk), i, hasquote, occ
-
-
 def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted string.
@@ -462,11 +435,7 @@ def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
-    chunks = iter_chunks(s.strip(), ';') if QUOTE in s else \
-        ((ss, None, False, None) for ss in s.strip().split(';'))
-
-    kw['strip_comments'] = strip_comments
-    return [parse_node(st.strip(), has_quotes=q, **kw) for st, _, q, _ in chunks if st]
+    return [ns.to_node() for ns in NewickString(s).iter_subtrees(strip_comments=strip_comments)]
 
 
 def dumps(trees: typing.Union[Node, typing.Iterable[Node]]) -> str:
@@ -519,105 +488,164 @@ def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8
         dump(tree, fp)
 
 
-def _parse_name_and_length(s):
-    length, comment, colon_before_comment = None, None, False
+@dataclasses.dataclass
+class Token:
+    __slots__ = [
+        'char',
+        'inquote',
+        'commentlevel',
+        'level',
+        'regular',
+        'is_comma',
+        'is_colon',
+        'is_semicolon']
+    char: str
+    inquote: bool
+    commentlevel: int
+    level: int
+    regular: bool
+    is_comma: bool
+    is_colon: bool
+    is_semicolon: bool
 
-    chunks = list(iter_chunks(s, ':'))
-    if len(chunks) > 1:
-        before = chunks[0][0]
-        after = s[chunks[0][1] + 1:]
-        # Comments may be placed between ":" and length, or between name and ":"!
-        # In any case, we interpret the first occurrence of ":" as separator for length, i.e.
-        # a ":" in an annotation **before** the length separator will screw things up.
-        if before.endswith(']'):
-            assert '[' in before and '[' not in after, s
-            s, comment = before[:-1].split('[', maxsplit=1)
-            length = after
-        elif after.startswith('['):
-            assert ']' in after and '[' not in before, s
-            colon_before_comment = True
-            comment, length = after[1:].split(']', maxsplit=1)
-            s = before
+
+class NewickString:
+    """
+    A list of (char, in_quote) pairs with support for
+    - slicing
+    - a Counter of token types
+    """
+    def __init__(self, s):
+        self.tokens = []
+
+        if isinstance(s, str):
+            count = collections.Counter()
+            i, inquote, commentlevel, doublequote, hasquote, occ = -1, False, 0, False, False, 0
+            bracketlevel = 0
+            for i, c in enumerate(s):
+                if c == QUOTE and not inquote:
+                    inquote = True
+                elif c == QUOTE and inquote and not doublequote:
+                    inquote = False
+                elif c in ESCAPE:
+                    if c == QUOTE and doublequote:
+                        doublequote = False
+                    elif i < len(s) - 1 and s[i + 1] == QUOTE:
+                        doublequote = True
+
+                if not inquote:
+                    if c == '[':
+                        commentlevel += 1
+
+                if (not inquote) and commentlevel == 0:
+                    if c == ')':
+                        bracketlevel -= 1
+                        if bracketlevel < 0:
+                            raise ValueError('invalid brace nesting')
+
+                if (not inquote) and commentlevel == 0 and c in RESERVED_PUNCTUATION:
+                    count.update([c])
+                iq = True if c == QUOTE else inquote
+                reg = (not iq) and (not bool(commentlevel))
+                self.tokens.append(Token(
+                    c, iq, commentlevel, bracketlevel, reg,
+                    reg and c == ',',
+                    reg and c == ':',
+                    reg and c == ';',
+                ))
+
+                if not inquote:
+                    if c == ']':
+                        commentlevel -= 1
+                        if commentlevel < 0:
+                            raise ValueError('invalid comment nesting')
+
+                if (not inquote) and commentlevel == 0:
+                    if c == '(':
+                        bracketlevel += 1
+            if count['('] != count[')']:
+                raise ValueError('different number of opening and closing braces')
         else:
-            s, length = before, after
-    if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
-        s, comment = s.split('[', maxsplit=1)
-        comment = comment[:-1]
-    return s or None, length or None, comment, colon_before_comment
+            self.tokens = s
+        self.minlevel = self.tokens[-1].level if self.tokens else 0
 
+    def to_node(self):
+        return Node.create(
+            descendants=[d.to_node() for d in self.descendants()], **self.root().name_and_length())
 
-def _parse_siblings(s, has_quotes=True, **kw):
-    """
-    http://stackoverflow.com/a/26809037
-    """
-    bracket_level = 0
-    square_bracket_level = 0
-    current = []
+    def descendants(self):
+        tokens, comma = [], False
+        for t in self.tokens:
+            if t.is_comma and t.level == self.minlevel + 1:
+                comma = True
+                yield NewickString(tokens)
+                tokens = []
+            elif t.level > self.minlevel:
+                tokens.append(t)
+        if comma or tokens:
+            yield NewickString(tokens)
 
-    if has_quotes:
-        # We must chunk outside of quoted strings only.
-        s = ','.join([chunk for chunk, _, _, _ in iter_chunks(s, ",", replace_separator=True)])
+    def root(self):
+        tokens = list(
+            itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self.tokens)))
+        if tokens and tokens[-1].char == ')':
+            tokens = tokens[:-1]
+        tokens.reverse()
+        return NewickString(tokens)
 
-    # trick to remove special-case of trailing chars
-    for c in (s + ","):
-        if c == "," and bracket_level == 0 and square_bracket_level == 0:
-            yield parse_node(
-                "".join(current).replace(REPLACEMENT, ','), has_quotes=has_quotes, **kw)
-            current = []
-        else:
-            if c == "(":
-                bracket_level += 1
-            elif c == ")":
-                bracket_level -= 1
-            elif c == "[":
-                square_bracket_level += 1
-            elif c == "]":
-                square_bracket_level -= 1
-            current.append(c)
+    def name_and_length(self):
+        name, length, comment = [], [], []
+        comments, incomment = [], False
+        # We store the index of the colon and of the first comment:
+        icolon, icomment = -1, -1
 
+        for i, t in enumerate(self.tokens):
+            if t.is_colon:
+                icolon = i
+            else:
+                if t.commentlevel:
+                    if icomment == -1:
+                        icomment = i
+                    comment.append(t.char)
+                else:
+                    if comment:
+                        comments.append(''.join(comment))
+                        comment = []
 
-def parse_node(s: str,
-               strip_comments: bool = False,
-               has_quotes: bool = True,
-               **kw) -> Node:
-    """
-    Parse a Newick formatted string into a `Node` object.
+                    if icolon == -1:
+                        name.append(t.char)
+                    else:
+                        length.append(t.char)
 
-    :param s: Newick formatted string to parse.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param has_quotes: Flag signaling whether parsing needs to happen in a quoting-aware way.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: `Node` instance.
-    """
-    if strip_comments:
-        s = COMMENT.sub('', s)
-    s = s.strip()
+        if comment:
+            comments.append(''.join(comment))
 
-    # Look for "(" (and matching")") outside of quotes.
-    if has_quotes:
-        parts, ob = [], 1
-        for chunk, _, _, occ in iter_chunks(s, ')', count='('):
-            parts.append(chunk)
-            ob += occ
-    else:
-        parts = s.split(')')
-        ob = len(s.split('('))
+        return dict(
+            name=''.join(name).strip() or None,
+            length=''.join(length) or None,
+            comments=[c[1:-1] for c in comments],
+            colon_before_comment=icolon < icomment)
 
-    if len(parts) != ob:
-        raise ValueError('different number of opening and closing braces')
-    if len(parts) == 1:
-        descendants, label = [], s
-    else:
-        if not parts[0].startswith('('):
-            raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], has_quotes=has_quotes, **kw))
-        label = parts[-1]
-    name, length, comment, colon_before_comment = _parse_name_and_length(label)
-    return Node.create(
-        name=name,
-        length=length,
-        comment=comment,
-        colon_before_comment=colon_before_comment,
-        descendants=descendants,
-        **kw)
+    def iter_subtrees(self, strip_comments=False):
+        def checked(t):
+            if t:
+                if t[0].level != t[-1].level:
+                    raise ValueError('different number of opening and closing braces')
+                if t[-1].commentlevel > 1 or \
+                        (t[-1].commentlevel == 1 and not t[-1].char == ']'):
+                    raise ValueError('invalid comment nesting')
+                if t[-1].inquote and not t[-1].char == QUOTE:
+                    raise ValueError('invalid quoting')
+            return NewickString(t)
+
+        tokens = []
+        for t in self.tokens:
+            if t.is_semicolon:
+                yield checked(tokens)
+                tokens = []
+                continue
+            if not (strip_comments and t.commentlevel):
+                tokens.append(t)
+
+        if tokens:
+            yield checked(tokens)
