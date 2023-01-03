@@ -109,6 +109,7 @@ def test_node_as_descendants_list():
     assert [desc], test_obj.descendants
 
 
+@pytest.mark.slow
 def test_read_write(tmp_path, fixture_dir):
     trees = read(fixture_dir / 'tree-glottolog-newick.txt')
 
@@ -150,10 +151,6 @@ def test_repr():
     assert repr(n) == 'Node("A")'
 
 
-#
-# FIXME: more tests here! empty node names, empty length, comments in quotes, commas, ...
-# whitespace ...
-#
 @pytest.mark.parametrize(
     's,assertion',
     [
@@ -495,6 +492,7 @@ def test_with_comments_beast():
     assert tree.newick == nwk
 
 
+@pytest.mark.slow
 def test_gtdb_tree(fixture_dir):
     tree = read(fixture_dir / 'ar53_r207.tree')[0]
     nodes = [node.name for node in tree.walk() if node.name]

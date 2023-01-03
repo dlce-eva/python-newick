@@ -14,6 +14,7 @@ __version__ = "1.4.1.dev0"
 RESERVED_PUNCTUATION = ':;,()'
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
+RP_PATTERN = re.compile('|'.join(re.escape(c) for c in RESERVED_PUNCTUATION))
 
 
 def length_parser(x):
@@ -25,9 +26,8 @@ def length_formatter(x):
 
 
 def check_string(n, type_):
-    for char in RESERVED_PUNCTUATION:
-        if char in n:
-            raise ValueError('"{}" may not appear in {}'.format(char, type_))
+    if RP_PATTERN.search(n):
+        raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION, type_))
     if re.search(r'\s+', n):
         raise ValueError('Whitespace may not appear in {}'.format(type_))
 
