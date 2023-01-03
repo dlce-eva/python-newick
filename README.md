@@ -99,12 +99,6 @@ The `newick` package allows to deal with comments in two ways.
   >>> newick.loads('(a:[annotation]2,b)c;')[0].descendants[0].length
   2.0
   ```
-  but if they preceed the colon, they must not contain `:`:
-- ```python
-  >>> newick.loads('(a[annotation:]:2,b)c;')[0].descendants[0].comment
-  ...
-  ValueError: Node names or branch lengths must not contain ":"
-  ```
 
 Note that square brackets inside *quoted labels* will **not** be interpreted as comments
 or annotations:

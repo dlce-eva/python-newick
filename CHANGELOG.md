@@ -4,6 +4,8 @@ The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.
 
 ## [Unreleased]
 
+Full support for quoted labels and (nested) comments.
+
 
 ## [v1.4.0] - 2022-12-06
 
