@@ -36,6 +36,15 @@ def test_Node_length():
         Node(None, length=':')
 
 
+def test_Node_comments():
+    n = Node('A', comments=['first', 'second'])
+    assert n.newick == "A[first|second]"
+
+    n = Node('A', comment='first')
+    n.comments.append('second')
+    assert n.newick == "A[first|second]"
+
+
 def test_empty_node_newick_representation(node):
     assert "" == node.newick
 

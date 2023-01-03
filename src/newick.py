@@ -7,7 +7,6 @@ import re
 import typing
 import pathlib
 import itertools
-import collections
 import dataclasses
 
 __version__ = "1.4.1.dev0"
@@ -25,6 +24,14 @@ def length_formatter(x):
     return '%s' % x
 
 
+def check_string(n, type_):
+    for char in RESERVED_PUNCTUATION:
+        if char in n:
+            raise ValueError('"{}" may not appear in {}'.format(char, type_))
+    if re.search(r'\s+', n):
+        raise ValueError('Whitespace may not appear in {}'.format(type_))
+
+
 class Node(object):
     """
     A Node may be a tree, a subtree or a leaf.
@@ -38,6 +45,7 @@ class Node(object):
                  length: typing.Optional[typing.Union[str, float]] = None,
                  comment: typing.Optional[str] = None,
                  comments: typing.Optional[list] = None,
+                 descendants: typing.Optional[typing.Iterable] = None,
                  auto_quote: bool = False,
                  **kw):
         """
@@ -52,11 +60,8 @@ class Node(object):
         """
         self._auto_quote = auto_quote
         self.name = name
-        self.comment = comment
-        if not comment and comments:
-            self.comment = comments[0]
-        self.comments = comments or []
-        self.descendants = []
+        self.comments = comments or ([comment] if comment else [])
+        self.descendants = descendants or []
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
@@ -77,11 +82,7 @@ class Node(object):
             quoted = True
 
         if n and not quoted:
-            for char in RESERVED_PUNCTUATION:
-                if char in n:
-                    raise ValueError('Node names must not contain "{}"'.format(char))
-            if re.search(r'\s+', n):
-                raise ValueError('Whitespace may not appear in unquoted strings')
+            check_string(n, 'unquoted string')
         self._name = n
 
     def __repr__(self):
@@ -106,48 +107,41 @@ class Node(object):
             self._length = length_
         else:
             if isinstance(length_, str):
-                for char in RESERVED_PUNCTUATION:
-                    if char in length_:
-                        raise ValueError('Branch lengths must not contain "{}"'.format(char))
-                if re.search(r'\s+', length_):
-                    raise ValueError('Whitespace may not appear in length')
+                check_string(length_, 'branch length')
             self._length = self._length_formatter(length_)
 
-    @classmethod
-    def create(cls,
-               name: typing.Optional[str] = None,
-               length: typing.Optional[float] = None,
-               descendants: typing.Optional[typing.Iterable] = None,
-               comment: typing.Optional[str] = None,
-               **kw) -> 'Node':
-        """
-        Create a new `Node` object.
+    @property
+    def comment(self):  # Backwards compatibility.
+        return self.comments[0] if self.comments else None
 
-        :param name: Node label.
-        :param length: Branch length from the new node to its parent.
-        :param descendants: list of descendants or `None`.
-        :param kw: Additonal keyword arguments are passed through to `Node.__init__`.
-        :return: `Node` instance.
-        """
-        node = cls(name=name, length=length, comment=comment, **kw)
-        for descendant in descendants or []:
-            node.add_descendant(descendant)
-        return node
+    @classmethod
+    def create(cls, **kw) -> 'Node':  # Backwards compatibility.
+        return cls(**kw)
+
+    @property
+    def descendants(self):
+        return self._descendants
+
+    @descendants.setter
+    def descendants(self, nodes: typing.Iterable):
+        self._descendants = []
+        for node in nodes:
+            self.add_descendant(node)
 
     def add_descendant(self, node: 'Node'):
         node.ancestor = self
-        self.descendants.append(node)
+        self._descendants.append(node)
 
     @property
     def newick(self) -> str:
         """The representation of the Node in Newick format."""
         colon_done = False
         label = self.name or ''
-        if self.comment:
+        if self.comments:
             if self._length and self._colon_before_comment:
                 label += ':'
                 colon_done = True
-            label += '[{}]'.format(self.comment)
+            label += '[{}]'.format('|'.join(self.comments))
         if self._length:
             if not colon_done:
                 label += ':'
@@ -509,97 +503,74 @@ class Token:
     is_semicolon: bool
 
 
-class NewickString:
+class NewickString(list):
     """
-    A list of (char, in_quote) pairs with support for
-    - slicing
-    - a Counter of token types
+    A list of tokens with methods to access newick constituents.
     """
     def __init__(self, s):
-        self.tokens = []
+        list.__init__(self, s if not isinstance(s, str) else [])
 
         if isinstance(s, str):
-            count = collections.Counter()
-            i, inquote, commentlevel, doublequote, hasquote, occ = -1, False, 0, False, False, 0
-            bracketlevel = 0
+            i, inquote, commentlevel, doublequote, bracketlevel = -1, False, 0, False, 0
             for i, c in enumerate(s):
-                if c == QUOTE and not inquote:
+                if c == QUOTE and not inquote:  # Start of quoted string
                     inquote = True
-                elif c == QUOTE and inquote and not doublequote:
+                elif c == QUOTE and inquote and not doublequote:  # End of quoted string
                     inquote = False
                 elif c in ESCAPE:
-                    if c == QUOTE and doublequote:
+                    if c == QUOTE and doublequote:  # The "escaped" single quote
                         doublequote = False
                     elif i < len(s) - 1 and s[i + 1] == QUOTE:
+                        # The escape character for the following single quote
                         doublequote = True
 
-                if not inquote:
+                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
                     if c == '[':
                         commentlevel += 1
 
                 if (not inquote) and commentlevel == 0:
+                    # Outside of quoted strings and comments we keep track of node nesting.
+                    # Note: The enclosing brackets have lower bracketlevel than the content.
                     if c == ')':
                         bracketlevel -= 1
                         if bracketlevel < 0:
                             raise ValueError('invalid brace nesting')
 
-                if (not inquote) and commentlevel == 0 and c in RESERVED_PUNCTUATION:
-                    count.update([c])
                 iq = True if c == QUOTE else inquote
                 reg = (not iq) and (not bool(commentlevel))
-                self.tokens.append(Token(
+                self.append(Token(
                     c, iq, commentlevel, bracketlevel, reg,
                     reg and c == ',',
                     reg and c == ':',
                     reg and c == ';',
                 ))
 
-                if not inquote:
+                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
                     if c == ']':
                         commentlevel -= 1
                         if commentlevel < 0:
                             raise ValueError('invalid comment nesting')
 
                 if (not inquote) and commentlevel == 0:
+                    # Outside of quoted strings and comments we keep track of node nesting.
                     if c == '(':
                         bracketlevel += 1
-            if count['('] != count[')']:
-                raise ValueError('different number of opening and closing braces')
-        else:
-            self.tokens = s
-        self.minlevel = self.tokens[-1].level if self.tokens else 0
+        # The minimal bracket level of the list of tokens:
+        self.minlevel = self[-1].level if self else 0
 
     def to_node(self):
-        return Node.create(
-            descendants=[d.to_node() for d in self.descendants()], **self.root().name_and_length())
-
-    def descendants(self):
-        tokens, comma = [], False
-        for t in self.tokens:
-            if t.is_comma and t.level == self.minlevel + 1:
-                comma = True
-                yield NewickString(tokens)
-                tokens = []
-            elif t.level > self.minlevel:
-                tokens.append(t)
-        if comma or tokens:
-            yield NewickString(tokens)
-
-    def root(self):
+        # Parse label and length of the root node:
         tokens = list(
-            itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self.tokens)))
+            itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
         if tokens and tokens[-1].char == ')':
             tokens = tokens[:-1]
         tokens.reverse()
-        return NewickString(tokens)
 
-    def name_and_length(self):
-        name, length, comment = [], [], []
-        comments, incomment = [], False
+        name, length, comment, comments = [], [], [], []
         # We store the index of the colon and of the first comment:
         icolon, icomment = -1, -1
 
-        for i, t in enumerate(self.tokens):
+        for i, t in enumerate(tokens):
             if t.is_colon:
                 icolon = i
             else:
@@ -620,11 +591,24 @@ class NewickString:
         if comment:
             comments.append(''.join(comment))
 
-        return dict(
+        return Node.create(
             name=''.join(name).strip() or None,
             length=''.join(length) or None,
             comments=[c[1:-1] for c in comments],
-            colon_before_comment=icolon < icomment)
+            colon_before_comment=icolon < icomment,
+            descendants=[d.to_node() for d in self.iter_descendants()])
+
+    def iter_descendants(self):
+        tokens, comma = [], False
+        for t in self:
+            if t.is_comma and t.level == self.minlevel + 1:
+                comma = True
+                yield NewickString(tokens)
+                tokens = []
+            elif t.level > self.minlevel:
+                tokens.append(t)
+        if comma or tokens:
+            yield NewickString(tokens)
 
     def iter_subtrees(self, strip_comments=False):
         def checked(t):
@@ -639,7 +623,7 @@ class NewickString:
             return NewickString(t)
 
         tokens = []
-        for t in self.tokens:
+        for t in self:
             if t.is_semicolon:
                 yield checked(tokens)
                 tokens = []
