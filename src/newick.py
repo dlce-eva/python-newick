@@ -36,9 +36,8 @@ class Node(object):
     """
     A Node may be a tree, a subtree or a leaf.
 
-    A Node has optional name and length (from parent) and a (possibly empty) list of
-    descendants. It further has an ancestor, which is *None* if the node is the
-    root node of a tree.
+    :ivar typing.Optional[Node] ancestor: `None` if the node is the root node of a tree.
+    :ivar typing.List[Node] descendants: List of immediate children of the node.
     """
     def __init__(self,
                  name: typing.Optional[str] = None,
@@ -484,6 +483,10 @@ def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8
 
 @dataclasses.dataclass
 class Token:
+    """
+    We parse Newick in one pass, storing the data as list of tokens with enough
+    information to extract relevant parts from this list lateron.
+    """
     __slots__ = [
         'char',
         'inquote',
@@ -493,24 +496,25 @@ class Token:
         'is_comma',
         'is_colon',
         'is_semicolon']
-    char: str
-    inquote: bool
-    commentlevel: int
-    level: int
-    regular: bool
-    is_comma: bool
-    is_colon: bool
-    is_semicolon: bool
+    char: str  # The character, i.e. string of length 1.
+    inquote: bool  # Whether the character is inside a quoted string.
+    commentlevel: int  # Whether the character is inside a (nested) comment.
+    level: int  # How deep the character is nested in the tree.
+    regular: bool  # Whether the character is outside quotes or comments, i.e. may convey syntax.
+    is_comma: bool  # Whether the token is a "Newick-comma", i.e. separates sibling nodes.
+    is_colon: bool  # Whether the token is a "Newick-colon", i.e. separates label and length.
+    is_semicolon: bool  # Whether the token is a "Newick-semicolon", i.e. separates subtrees.
 
 
 class NewickString(list):
     """
     A list of tokens with methods to access newick constituents.
     """
-    def __init__(self, s):
+    def __init__(self, s: typing.Union[str, typing.List[Token]]):
         list.__init__(self, s if not isinstance(s, str) else [])
 
         if isinstance(s, str):
+            # An unparsed string. We must convert it to a list of tokens.
             i, inquote, commentlevel, doublequote, bracketlevel = -1, False, 0, False, 0
             for i, c in enumerate(s):
                 if c == QUOTE and not inquote:  # Start of quoted string
@@ -558,7 +562,7 @@ class NewickString(list):
         # The minimal bracket level of the list of tokens:
         self.minlevel = self[-1].level if self else 0
 
-    def to_node(self):
+    def to_node(self) -> Node:
         # Parse label and length of the root node:
         tokens = list(
             itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
@@ -598,7 +602,7 @@ class NewickString(list):
             colon_before_comment=icolon < icomment,
             descendants=[d.to_node() for d in self.iter_descendants()])
 
-    def iter_descendants(self):
+    def iter_descendants(self) -> typing.Generator['NewickString', None, None]:
         tokens, comma = [], False
         for t in self:
             if t.is_comma and t.level == self.minlevel + 1:
@@ -610,7 +614,7 @@ class NewickString(list):
         if comma or tokens:
             yield NewickString(tokens)
 
-    def iter_subtrees(self, strip_comments=False):
+    def iter_subtrees(self, strip_comments=False) -> typing.Generator['NewickString', None, None]:
         def checked(t):
             if t:
                 if t[0].level != t[-1].level:
