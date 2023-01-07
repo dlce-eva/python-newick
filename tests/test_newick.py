@@ -5,23 +5,25 @@ from newick import loads, dumps, Node, read, write
 
 
 @pytest.fixture
-def node():
-    return Node()
-
-
-@pytest.fixture
 def fixture_dir():
    return pathlib.Path(__file__).parent / 'fixtures'
 
 
-def test_empty_node(node):
+def test_empty_node():
+    node = Node()
     assert node.name is None
     assert node.length == 0.0
+    assert "" == node.newick
+    assert [] == node.descendants
 
 
 def test_Node_name():
     with pytest.raises(ValueError):
         Node("()")
+
+    with pytest.raises(ValueError):
+        Node(name='A)')
+
     n = Node("a'b", auto_quote=True)
     assert n.name == "'a''b'"
     assert n.unquoted_name == "a'b"
@@ -29,6 +31,7 @@ def test_Node_name():
     assert n.name == "':'"
     n.name = 'A'
     assert n.name == n.unquoted_name
+    assert repr(n) == 'Node("A")'
 
 
 def test_Node_length():
@@ -43,14 +46,6 @@ def test_Node_comments():
     n = Node('A', comment='first')
     n.comments.append('second')
     assert n.newick == "A[first|second]"
-
-
-def test_empty_node_newick_representation(node):
-    assert "" == node.newick
-
-
-def test_empty_node_as_descendants_list(node):
-    assert [] == node.descendants
 
 
 def test_node_newick_representation_without_length():
@@ -87,7 +82,7 @@ def test_node_representation_with_deeper_descendants(test_data):
     """
     Procedure:
     1. Make simple tree with one descendant having two more descendants inside
-    2. Verify if it's newick representation is correct in comparison to parsed "proper_result"
+    2. Verify if its newick representation is correct in comparison to parsed "proper_result"
     """
     single_nodes_reprs = [
         "{0}:{1}".format(name, length)
@@ -106,7 +101,7 @@ def test_node_as_descendants_list():
     test_obj = Node("A", "1.0")
     desc = Node("D", "2.0")
     test_obj.add_descendant(desc)
-    assert [desc], test_obj.descendants
+    assert [desc] == test_obj.descendants
 
 
 @pytest.mark.slow
@@ -124,9 +119,6 @@ def test_read_write(tmp_path, fixture_dir):
 
 
 def test_Node():
-    with pytest.raises(ValueError):
-        Node(name='A)')
-
     root = loads('(A,B,(C,D)E)F;')[0]
     assert [n.name for n in root.walk()] == ['F', 'A', 'B', 'E', 'C', 'D']
     assert [n.name for n in root.walk() if n.is_leaf] == ['A', 'B', 'C', 'D']
@@ -144,11 +136,6 @@ def test_Node():
             '(c,d)',
             '(c,d)',
             '(((a,b),(c,d)),e)']
-
-
-def test_repr():
-    n = Node(name="A")
-    assert repr(n) == 'Node("A")'
 
 
 @pytest.mark.parametrize(
@@ -185,6 +172,29 @@ def test_repr():
         ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: r[0].descendants[-1].length == 0.1),
         ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: r[0].name == 'A'),
         ('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;', lambda r: len(r[0].descendants) == 1),
+        # http://marvin.cs.uidaho.edu/Teaching/CS515/newickFormat.html
+        (
+            "(ant:17, (bat:31, cow:22):7, dog:22, (elk:33, fox:12):40);",
+            lambda r: set(r[0].get_leaf_names()) == {'ant', 'bat', 'cow', 'dog', 'elk', 'fox'}),
+        (
+            """\
+(
+    (raccoon:19.19959,bear:6.80041):0.84600,
+    (
+        (sea_lion:11.99700, seal:12.00300):7.52973,
+        (
+            (monkey:100.85930,cat:47.14069):20.59201, 
+            weasel:18.87953
+        ):2.09460
+    ):3.87382,
+    dog:25.46154
+);""",
+            lambda r: set(r[0].get_leaf_names()) ==
+                      {'raccoon', 'bear', 'sea_lion', 'seal', 'monkey', 'cat', 'weasel', 'dog'}),
+        # https://evolution.genetics.washington.edu/phylip/newicktree.html
+        (
+            "(,(,,),);",
+            lambda r: len(r[0].get_leaves()) == 5),
     ]
 )
 def test_quoting_and_comments(s, assertion):
@@ -282,9 +292,7 @@ def test_clone():
 
 def test_leaf_functions():
     tree = loads('((B:0.2,(C:0.3,D:0.4)E:0.5)F:0.1)A;')[0]
-    leaf_names = set(tree.get_leaf_names())
-    true_names = {"B", "C", "D"}
-    assert leaf_names == true_names
+    assert set(tree.get_leaf_names()) == {"B", "C", "D"}
 
 
 @pytest.mark.parametrize(

@@ -106,6 +106,7 @@ class Node(object):
             self._length = length_
         else:
             if isinstance(length_, str):
+                length_ = length_.strip()
                 check_string(length_, 'branch length')
             self._length = self._length_formatter(length_)
 
