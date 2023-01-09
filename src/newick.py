@@ -9,7 +9,7 @@ import pathlib
 import itertools
 import dataclasses
 
-__version__ = "1.4.1.dev0"
+__version__ = "1.5.0"
 
 RESERVED_PUNCTUATION = ':;,()'
 QUOTE = "'"
