@@ -6,11 +6,15 @@ Functionality to read and write the Newick serialization format for trees.
 import re
 import typing
 import pathlib
+import itertools
+import dataclasses
 
-__version__ = "1.4.1.dev0"
+__version__ = "1.5.0"
 
 RESERVED_PUNCTUATION = ':;,()'
-COMMENT = re.compile(r'\[[^]]*]')
+QUOTE = "'"
+ESCAPE = {"'", "\\"}
+RP_PATTERN = re.compile('|'.join(re.escape(c) for c in RESERVED_PUNCTUATION))
 
 
 def length_parser(x):
@@ -21,41 +25,76 @@ def length_formatter(x):
     return '%s' % x
 
 
+def check_string(n, type_):
+    if RP_PATTERN.search(n):
+        raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION, type_))
+    if re.search(r'\s+', n):
+        raise ValueError('Whitespace may not appear in {}'.format(type_))
+
+
 class Node(object):
     """
     A Node may be a tree, a subtree or a leaf.
 
-    A Node has optional name and length (from parent) and a (possibly empty) list of
-    descendants. It further has an ancestor, which is *None* if the node is the
-    root node of a tree.
+    :ivar typing.Optional[Node] ancestor: `None` if the node is the root node of a tree.
+    :ivar typing.List[Node] descendants: List of immediate children of the node.
     """
     def __init__(self,
                  name: typing.Optional[str] = None,
-                 length: typing.Optional[float] = None,
+                 length: typing.Optional[typing.Union[str, float]] = None,
                  comment: typing.Optional[str] = None,
+                 comments: typing.Optional[list] = None,
+                 descendants: typing.Optional[typing.Iterable] = None,
+                 auto_quote: bool = False,
                  **kw):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
+        :param auto_quote: Optional flag specifying whether the node name should be quoted if \
+        necessary.
         :param kw: Recognized keyword arguments:\
             `length_parser`: Custom parser for the `length` attribute of a Node.\
             `length_formatter`: Custom formatter for the branch length when formatting a\
             Node as Newick string.
         """
-        for char in RESERVED_PUNCTUATION:
-            if (name and char in name) or (length and char in length):
-                raise ValueError('Node names or branch lengths must not contain "{}"'.format(char))
+        self._auto_quote = auto_quote
         self.name = name
-        self.comment = comment
-        self._length = length
-        self.descendants = []
+        self.comments = comments or ([comment] if comment else [])
+        self.descendants = descendants or []
         self.ancestor = None
         self._length_parser = kw.pop('length_parser', length_parser)
         self._length_formatter = kw.pop('length_formatter', length_formatter)
         self._colon_before_comment = kw.pop('colon_before_comment', False)
+        self.length = length
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, n):
+        quoted = n and n.startswith(QUOTE) and n.endswith(QUOTE)
+
+        if (not quoted) and self._auto_quote and \
+                any(char in n for char in RESERVED_PUNCTUATION + QUOTE):
+            n = "{}{}{}".format(QUOTE, n.replace("'", "''"), QUOTE)
+            quoted = True
+
+        if n and not quoted:
+            check_string(n, 'unquoted string')
+        self._name = n
 
     def __repr__(self):
         return 'Node("%s")' % self.name
+
+    @property
+    def unquoted_name(self):
+        n = self.name
+        if n.startswith(QUOTE) and n.endswith(QUOTE):
+            n = n[1:-1]
+            for esc in ESCAPE:
+                n = n.replace(esc + QUOTE, QUOTE)
+        return n
 
     @property
     def length(self) -> float:
@@ -66,43 +105,43 @@ class Node(object):
         if length_ is None:
             self._length = length_
         else:
+            if isinstance(length_, str):
+                length_ = length_.strip()
+                check_string(length_, 'branch length')
             self._length = self._length_formatter(length_)
 
-    @classmethod
-    def create(cls,
-               name: typing.Optional[str] = None,
-               length: typing.Optional[float] = None,
-               descendants: typing.Optional[typing.Iterable] = None,
-               comment: typing.Optional[str] = None,
-               **kw) -> 'Node':
-        """
-        Create a new `Node` object.
+    @property
+    def comment(self):  # Backwards compatibility.
+        return self.comments[0] if self.comments else None
 
-        :param name: Node label.
-        :param length: Branch length from the new node to its parent.
-        :param descendants: list of descendants or `None`.
-        :param kw: Additonal keyword arguments are passed through to `Node.__init__`.
-        :return: `Node` instance.
-        """
-        node = cls(name=name, length=length, comment=comment, **kw)
-        for descendant in descendants or []:
-            node.add_descendant(descendant)
-        return node
+    @classmethod
+    def create(cls, **kw) -> 'Node':  # Backwards compatibility.
+        return cls(**kw)
+
+    @property
+    def descendants(self):
+        return self._descendants
+
+    @descendants.setter
+    def descendants(self, nodes: typing.Iterable):
+        self._descendants = []
+        for node in nodes:
+            self.add_descendant(node)
 
     def add_descendant(self, node: 'Node'):
         node.ancestor = self
-        self.descendants.append(node)
+        self._descendants.append(node)
 
     @property
     def newick(self) -> str:
         """The representation of the Node in Newick format."""
         colon_done = False
         label = self.name or ''
-        if self.comment:
+        if self.comments:
             if self._length and self._colon_before_comment:
                 label += ':'
                 colon_done = True
-            label += '[{}]'.format(self.comment)
+            label += '[{}]'.format('|'.join(self.comments))
         if self._length:
             if not colon_done:
                 label += ':'
@@ -390,8 +429,7 @@ def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
-    kw['strip_comments'] = strip_comments
-    return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
+    return [ns.to_node() for ns in NewickString(s).iter_subtrees(strip_comments=strip_comments)]
 
 
 def dumps(trees: typing.Union[Node, typing.Iterable[Node]]) -> str:
@@ -444,83 +482,159 @@ def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8
         dump(tree, fp)
 
 
-def _parse_name_and_length(s):
-    length, comment, colon_before_comment = None, None, False
-    if ':' in s:
-        # Comments may be placed between ":" and length, or between name and ":"!
-        # In any case, we interpret the first occurrence of ":" as separator for length, i.e.
-        # a ":" in an annotation **before** the length separator will screw things up.
-        before, _, after = s.partition(':')
-        if before.endswith(']'):
-            assert '[' in before and '[' not in after, s
-            s, comment = before[:-1].split('[', maxsplit=1)
-            length = after
-        elif after.startswith('['):
-            assert ']' in after and '[' not in before, s
-            colon_before_comment = True
-            comment, length = after[1:].split(']', maxsplit=1)
-            s = before
-        else:
-            s, length = before, after
-    if '[' in s and s.endswith(']'):  # This looks like a node annotation in a comment.
-        s, comment = s.split('[', maxsplit=1)
-        comment = comment[:-1]
-    return s or None, length or None, comment, colon_before_comment
-
-
-def _parse_siblings(s, **kw):
+@dataclasses.dataclass
+class Token:
     """
-    http://stackoverflow.com/a/26809037
+    We parse Newick in one pass, storing the data as list of tokens with enough
+    information to extract relevant parts from this list lateron.
     """
-    bracket_level = 0
-    square_bracket_level = 0
-    current = []
-
-    # trick to remove special-case of trailing chars
-    for c in (s + ","):
-        if c == "," and bracket_level == 0 and square_bracket_level == 0:
-            yield parse_node("".join(current), **kw)
-            current = []
-        else:
-            if c == "(":
-                bracket_level += 1
-            elif c == ")":
-                bracket_level -= 1
-            elif c == "[":
-                square_bracket_level += 1
-            elif c == "]":
-                square_bracket_level -= 1
-            current.append(c)
+    __slots__ = [
+        'char',
+        'inquote',
+        'commentlevel',
+        'level',
+        'regular',
+        'is_comma',
+        'is_colon',
+        'is_semicolon']
+    char: str  # The character, i.e. string of length 1.
+    inquote: bool  # Whether the character is inside a quoted string.
+    commentlevel: int  # Whether the character is inside a (nested) comment.
+    level: int  # How deep the character is nested in the tree.
+    regular: bool  # Whether the character is outside quotes or comments, i.e. may convey syntax.
+    is_comma: bool  # Whether the token is a "Newick-comma", i.e. separates sibling nodes.
+    is_colon: bool  # Whether the token is a "Newick-colon", i.e. separates label and length.
+    is_semicolon: bool  # Whether the token is a "Newick-semicolon", i.e. separates subtrees.
 
 
-def parse_node(s, strip_comments=False, **kw):
+class NewickString(list):
     """
-    Parse a Newick formatted string into a `Node` object.
-
-    :param s: Newick formatted string to parse.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: `Node` instance.
+    A list of tokens with methods to access newick constituents.
     """
-    if strip_comments:
-        s = COMMENT.sub('', s)
-    s = s.strip()
-    parts = s.split(')')
-    if len(parts) != len(s.split('(')):
-        raise ValueError('different number of opening and closing braces')
-    if len(parts) == 1:
-        descendants, label = [], s
-    else:
-        if not parts[0].startswith('('):
-            raise ValueError('unmatched braces %s' % parts[0][:100])
-        descendants = list(_parse_siblings(')'.join(parts[:-1])[1:], **kw))
-        label = parts[-1]
-    name, length, comment, colon_before_comment = _parse_name_and_length(label)
-    return Node.create(
-        name=name,
-        length=length,
-        comment=comment,
-        colon_before_comment=colon_before_comment,
-        descendants=descendants,
-        **kw)
+    def __init__(self, s: typing.Union[str, typing.List[Token]]):
+        list.__init__(self, s if not isinstance(s, str) else [])
+
+        if isinstance(s, str):
+            # An unparsed string. We must convert it to a list of tokens.
+            i, inquote, commentlevel, doublequote, bracketlevel = -1, False, 0, False, 0
+            for i, c in enumerate(s):
+                if c == QUOTE and not inquote:  # Start of quoted string
+                    inquote = True
+                elif c == QUOTE and inquote and not doublequote:  # End of quoted string
+                    inquote = False
+                elif c in ESCAPE:
+                    if c == QUOTE and doublequote:  # The "escaped" single quote
+                        doublequote = False
+                    elif i < len(s) - 1 and s[i + 1] == QUOTE:
+                        # The escape character for the following single quote
+                        doublequote = True
+
+                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
+                    if c == '[':
+                        commentlevel += 1
+
+                if (not inquote) and commentlevel == 0:
+                    # Outside of quoted strings and comments we keep track of node nesting.
+                    # Note: The enclosing brackets have lower bracketlevel than the content.
+                    if c == ')':
+                        bracketlevel -= 1
+                        if bracketlevel < 0:
+                            raise ValueError('invalid brace nesting')
+
+                iq = True if c == QUOTE else inquote
+                reg = (not iq) and (not bool(commentlevel))
+                self.append(Token(
+                    c, iq, commentlevel, bracketlevel, reg,
+                    reg and c == ',',
+                    reg and c == ':',
+                    reg and c == ';',
+                ))
+
+                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
+                    if c == ']':
+                        commentlevel -= 1
+                        if commentlevel < 0:
+                            raise ValueError('invalid comment nesting')
+
+                if (not inquote) and commentlevel == 0:
+                    # Outside of quoted strings and comments we keep track of node nesting.
+                    if c == '(':
+                        bracketlevel += 1
+        # The minimal bracket level of the list of tokens:
+        self.minlevel = self[-1].level if self else 0
+
+    def to_node(self) -> Node:
+        # Parse label and length of the root node:
+        tokens = list(
+            itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
+        if tokens and tokens[-1].char == ')':
+            tokens = tokens[:-1]
+        tokens.reverse()
+
+        name, length, comment, comments = [], [], [], []
+        # We store the index of the colon and of the first comment:
+        icolon, icomment = -1, -1
+
+        for i, t in enumerate(tokens):
+            if t.is_colon:
+                icolon = i
+            else:
+                if t.commentlevel:
+                    if icomment == -1:
+                        icomment = i
+                    comment.append(t.char)
+                else:
+                    if comment:
+                        comments.append(''.join(comment))
+                        comment = []
+
+                    if icolon == -1:
+                        name.append(t.char)
+                    else:
+                        length.append(t.char)
+
+        if comment:
+            comments.append(''.join(comment))
+
+        return Node.create(
+            name=''.join(name).strip() or None,
+            length=''.join(length) or None,
+            comments=[c[1:-1] for c in comments],
+            colon_before_comment=icolon < icomment,
+            descendants=[d.to_node() for d in self.iter_descendants()])
+
+    def iter_descendants(self) -> typing.Generator['NewickString', None, None]:
+        tokens, comma = [], False
+        for t in self:
+            if t.is_comma and t.level == self.minlevel + 1:
+                comma = True
+                yield NewickString(tokens)
+                tokens = []
+            elif t.level > self.minlevel:
+                tokens.append(t)
+        if comma or tokens:
+            yield NewickString(tokens)
+
+    def iter_subtrees(self, strip_comments=False) -> typing.Generator['NewickString', None, None]:
+        def checked(t):
+            if t:
+                if t[0].level != t[-1].level:
+                    raise ValueError('different number of opening and closing braces')
+                if t[-1].commentlevel > 1 or \
+                        (t[-1].commentlevel == 1 and not t[-1].char == ']'):
+                    raise ValueError('invalid comment nesting')
+                if t[-1].inquote and not t[-1].char == QUOTE:
+                    raise ValueError('invalid quoting')
+            return NewickString(t)
+
+        tokens = []
+        for t in self:
+            if t.is_semicolon:
+                yield checked(tokens)
+                tokens = []
+                continue
+            if not (strip_comments and t.commentlevel):
+                tokens.append(t)
+
+        if tokens:
+            yield checked(tokens)

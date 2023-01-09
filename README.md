@@ -40,6 +40,33 @@ a `list` of `newick.Node` objects.
 
 ### Supported Newick dialects
 
+#### Quoted node labels
+
+Node labels in Newick may be quoted (i.e. enclosed in single quotes `'`) to make it possible to
+add characters which are otherwise reserved to names. The `newick` package supports quoted labels,
+but this comes at the price far slower reading (since all relevant Newick syntax must be detected
+in a quote-aware way).
+
+```python
+>>> from newick import loads
+>>> print(loads("('A:B','C''D')'E(F)'")[0].ascii_art())
+         ┌─'A:B'
+──'E(F)'─┤
+         └─'C''D'
+```
+
+When creating Newick trees programmatically, names can be quoted (if necessary) automatically:
+```python
+>>> from newick import Node
+>>> print(Node("A(F')", auto_quote=True).name)
+'A(F'')'
+>>> print(Node("A(F')", auto_quote=True).unquoted_name)
+A(F')
+```
+
+
+#### Additional information in comments
+
 The ["Newick specification"](http://biowiki.org/wiki/index.php/Newick_Format) states
 
 > Comments are enclosed in square brackets and may appear anywhere
@@ -71,12 +98,6 @@ The `newick` package allows to deal with comments in two ways.
   2.0
   >>> newick.loads('(a:[annotation]2,b)c;')[0].descendants[0].length
   2.0
-  ```
-  but if they preceed the colon, they must not contain `:`:
-- ```python
-  >>> newick.loads('(a[annotation:]:2,b)c;')[0].descendants[0].comment
-  ...
-  ValueError: Node names or branch lengths must not contain ":"
   ```
 
 Note that square brackets inside *quoted labels* will **not** be interpreted as comments
