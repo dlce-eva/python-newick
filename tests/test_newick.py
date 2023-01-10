@@ -243,6 +243,13 @@ def test_Node_custom_length():
     root.length = 10
     assert root.length == pytest.approx(5)
 
+    root = Node.create(length=100., length_formatter="{:0.1e}".format)
+    assert root.newick == ':1.0e+02'
+
+    weird_numbers_tree = "((a:1.e2,b:3j),(c:0x0BEFD6B0,d:003))"
+    root = loads(weird_numbers_tree, length_parser=None)[0]
+    assert weird_numbers_tree == root.newick
+
 
 def test_Node_ascii_art():
     assert loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True) == """\
