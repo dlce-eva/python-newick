@@ -156,6 +156,12 @@ def test_Node():
         (
             '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];',
             lambda r: r[0].comments == ['% ', '% ', '%  setBetweenBits = selected ']),
+        (
+            "(A,B)C[&k1=v1]:[&k2=v2]2.0;",
+            lambda r: r[0].comments == ['&k1=v1', '&k2=v2'] and r[0].length == 2.0),
+        (
+            "(A,B)C[&k1=v1]:[&k2=v2]2.0;",
+            lambda r: r[0].properties == dict(k1='v1', k2='v2')),
         ("('A;B',C)D;", lambda r: len(r) == 1),
         ("('A:B':2,C:3)D:4;", lambda r: r[0].descendants[0].unquoted_name == 'A:B'),
         ("('A:B':2,C:3)D:4;", lambda r: pytest.approx(r[0].descendants[0].length) == 2.0),
@@ -195,6 +201,9 @@ def test_Node():
         (
             "(,(,,),);",
             lambda r: len(r[0].get_leaves()) == 5),
+        (
+            "((a:3[&&NHX:name=a:support=100],b:2[&&NHX:name=b:support=100]):4[&&NHX:name=ab:support=60],c:5[&&NHX:name=c:support=100]);",
+            lambda r: r[0].get_leaves()[0].properties['support'] == '100')
     ]
 )
 def test_quoting_and_comments(s, assertion):
@@ -505,3 +514,18 @@ def test_gtdb_tree(fixture_dir):
     tree = read(fixture_dir / 'ar53_r207.tree')[0]
     nodes = [node.name for node in tree.walk() if node.name]
     assert nodes[-9] == "'100.0:p__Undinarchaeota; c__Undinarchaeia; o__Undinarchaeales'"
+
+
+def test_mrbayes_tree(fixture_dir):
+    tree = read(fixture_dir / 'mrbayes.nwk')[0]
+    nodes = {node.name: node.properties for node in tree.walk() if node.name}
+    assert nodes['1'] == {
+        'prob': '1.00000000e+00',
+        'prob_stddev': '0.00000000e+00',
+        'prob_range': '{1.00000000e+00,1.00000000e+00}',
+        'prob(percent)': '"100"',
+        'prob+-sd': '"100+-0"',
+        'length_mean': '1.32336084e-02',
+        'length_median': '1.32257600e-02',
+        'length_95%HPD': '{1.25875600e-02,1.38462600e-02}',
+    }

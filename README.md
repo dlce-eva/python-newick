@@ -9,7 +9,7 @@ python package to read and write the
 
 ## Reading Newick
 
-Since Newick specifies a format for a set of trees, all functions to read Newick return
+Since Newick specifies a format for a **set of trees**, all functions to read Newick return
 a `list` of `newick.Node` objects.
 
 - Reading from a string:
@@ -40,12 +40,17 @@ a `list` of `newick.Node` objects.
 
 ### Supported Newick dialects
 
+While the set of reserved characters in Newick (`;(),:`) is relatively small, it's still often
+seen as too restrictive, in particular when it comes to adding more data to tree nodes. Thus, Newick
+provides two mechanisms to overcome this restriction:
+- *quoted labels* to allow arbitrary text as node names,
+- *comments* enclosed in square brackets.
+
+
 #### Quoted node labels
 
 Node labels in Newick may be quoted (i.e. enclosed in single quotes `'`) to make it possible to
-add characters which are otherwise reserved to names. The `newick` package supports quoted labels,
-but this comes at the price far slower reading (since all relevant Newick syntax must be detected
-in a quote-aware way).
+add characters which are otherwise reserved. The `newick` package supports quoted labels.
 
 ```python
 >>> from newick import loads
@@ -63,6 +68,9 @@ When creating Newick trees programmatically, names can be quoted (if necessary) 
 >>> print(Node("A(F')", auto_quote=True).unquoted_name)
 A(F')
 ```
+
+Note: `newick` provides no support to parse structured data from node labels (as it can be found
+in the trees distributed by the Genome Taxonomy Database).
 
 
 #### Additional information in comments
@@ -92,12 +100,14 @@ The `newick` package allows to deal with comments in two ways.
   >>> newick.loads('(a[annotation],b)c;')[0].newick
   '(a[annotation],b)c'
   ```
-  Annotations may come before or after the `:` which separates node label and length:
+  Annotations may come before and/or after the `:` which separates node label and length:
 - ```python
   >>> newick.loads('(a[annotation]:2,b)c;')[0].descendants[0].length
   2.0
   >>> newick.loads('(a:[annotation]2,b)c;')[0].descendants[0].length
   2.0
+  >>> newick.loads('(a[annotation1]:[annotation2]2,b)c;')[0].descendants[0].comments
+  ['annotation1', 'annotation2']
   ```
 
 Note that square brackets inside *quoted labels* will **not** be interpreted as comments
@@ -109,6 +119,23 @@ or annotations:
 "('a[label]',b)c"
 ```
 
+Some support for reading key-value data from node comments is available as well. If the comment
+format follows the [NHX](https://en.wikipedia.org/wiki/Newick_format#New_Hampshire_X_format) spec
+or the `&<key>=<value>,...`-format used e.g. by the MrBayes or BEAST software, additional data
+can be accessed from the `dict` `Node.properties`:
+```python
+>>> newick.loads('(A,B)C[&&NHX:k1=v1:k2=v2];')[0].properties
+{'k1': 'v1', 'k2': 'v2'}
+```
+
+Note that we still don't support **typed** node properties. I.e. values in `Node.properties` are
+always strings. Since typed properties tend to be specific to the application writing the newick,
+this level of support would require more knowledge of the creation context of the tree than can
+safely be inferred from the Newick string alone.
+```python
+>>> newick.loads('(A,B)C[&range={1,5},support="100"];')[0].properties
+{'range': '{1,5}', 'support': '"100"'}
+```
 
 ## Writing Newick
 

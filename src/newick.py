@@ -17,6 +17,43 @@ ESCAPE = {"'", "\\"}
 RP_PATTERN = re.compile('|'.join(re.escape(c) for c in RESERVED_PUNCTUATION))
 
 
+def _iter_properties(c):
+    """
+    Parse key-value properties from known comment formats.
+    """
+    NHX_KV_PATTERN = re.compile(r':(?P<key>[^=]+)=(?P<value>[^:]+)')
+    if c.startswith('&&NHX'):
+        c = c[5:]
+        m = NHX_KV_PATTERN.match(c)
+        while m:
+            yield (m.groupdict()['key'], m.groupdict()['value'])
+            c = c[m.end():]
+            m = NHX_KV_PATTERN.match(c)
+    elif c.startswith('&'):
+        # MrBayes comment.
+        kv = []
+        inquote, bracketlevel = False, 0
+        for cc in c[1:]:
+            if cc == ',':
+                if not (inquote or bracketlevel != 0):
+                    assert kv
+                    k, _, v = ''.join(kv).partition('=')
+                    yield k, v
+                    kv = []
+                    inquote, bracketlevel = False, 0
+                    continue
+            elif cc == '{':
+                bracketlevel += 1
+            elif cc == '}':
+                bracketlevel -= 1
+            elif cc == '"':
+                inquote = not inquote
+            kv.append(cc)
+        if kv:
+            k, _, v = ''.join(kv).partition('=')
+            yield k, v
+
+
 def length_parser(x):
     return float(x or 0.0)
 
@@ -66,6 +103,13 @@ class Node(object):
         self._length_formatter = kw.pop('length_formatter', length_formatter)
         self._colon_before_comment = kw.pop('colon_before_comment', False)
         self.length = length
+
+    @property
+    def properties(self):
+        res = {}
+        for comment in self.comments:
+            res.update(list(_iter_properties(comment)))
+        return res
 
     @property
     def name(self):
@@ -583,19 +627,16 @@ class NewickString(list):
                     if icomment == -1:
                         icomment = i
                     comment.append(t.char)
-                else:
-                    if comment:
+                    if t.commentlevel == 1 and t.char == ']':
                         comments.append(''.join(comment))
                         comment = []
-
+                else:
                     if icolon == -1:
                         name.append(t.char)
                     else:
                         length.append(t.char)
 
-        if comment:
-            comments.append(''.join(comment))
-
+        assert not comment
         return Node.create(
             name=''.join(name).strip() or None,
             length=''.join(length) or None,
