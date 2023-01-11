@@ -2,7 +2,7 @@
 
 The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.6.0] - 2023-01-11
 
 Support reading key-value data from node comments.
 
