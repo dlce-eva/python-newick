@@ -253,32 +253,45 @@ def test_Node_custom_length():
     assert weird_numbers_tree == root.newick
 
 
-def test_Node_ascii_art():
-    assert loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True) == """\
+@pytest.mark.parametrize(
+    'nwk,kw,art',
+    [
+        ("(A,(B,C)D)Ex;",
+         {},
+         """\
      /-A
 --Ex-|
      |    /-B
      \\-D--|
-          \\-C"""
-
-    assert loads('(A,(B,C)D)Ex;')[0].ascii_art(strict=True, show_internal=False) == """\
+          \\-C"""),
+        ("(A,(B,C)D)Ex;",
+         dict(show_internal=False),
+         """\
     /-A
 ----|
     |   /-B
     \\---|
-        \\-C"""
-
-    assert loads('(A,B,C)D;')[0].ascii_art(strict=True, show_internal=False) == """\
+        \\-C"""),
+        ("(A,B,C)D;",
+         dict(show_internal=False),
+         """\
     /-A
 ----+-B
-    \\-C"""
-
-
-def test_Node_ascii_art_singleton():
-    assert loads('((A,B)C)Ex;')[0].ascii_art(strict=True) == """\
+    \\-C"""),
+        ("((A,B)C)Ex;",
+         {},
+         """\
           /-A
 --Ex --C--|
-          \\-B"""
+          \\-B"""),
+        ("(,(,,),);",
+         {},
+         "   /-\n   |  /-\n---+--+-\n   |  \\-\n   \\-"),
+    ]
+)
+def test_Node_ascii_art(nwk, kw, art):
+    kw.setdefault('strict', True)
+    assert loads(nwk)[0].ascii_art(**kw) == art
 
 
 def test_dumps(*trees):
