@@ -144,6 +144,8 @@ def test_Node():
         ("", lambda r: r == []),
         ("A", lambda r: r[0].name == 'A'),
         ("A;", lambda r: r[-1].name == 'A'),
+        ("A-B.C;", lambda r: r[-1].name == 'A-B.C'),
+        ("'A\\'C';", lambda r: r[-1].name == "'A\\'C'"),
         ("A  ;", lambda r: r[-1].name == 'A'),
         ("'A[noc]'", lambda r: r[0].name == "'A[noc]'"),
         ("'A(B'", lambda r: r[0].name == "'A(B'"),

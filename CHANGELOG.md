@@ -4,6 +4,8 @@ The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.
 
 ## [Unreleased]
 
+Big performance improvement of parser by switching to accumulated tokens.
+
 
 ## [v1.6.0] - 2023-01-11
 

@@ -4,6 +4,7 @@ Functionality to read and write the Newick serialization format for trees.
 .. seealso:: https://en.wikipedia.org/wiki/Newick_format
 """
 import re
+import enum
 import typing
 import pathlib
 import itertools
@@ -11,9 +12,31 @@ import dataclasses
 
 __version__ = "1.6.1.dev0"
 
-RESERVED_PUNCTUATION = ':;,()'
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
+COMMENT = {'[': 1, ']': -1}
+WHITESPACE = '\t\r\n '
+
+
+class TokenType(enum.Enum):
+    WORD = 1
+    QWORD = 2  # A quoted string
+    COMMENT = 3
+    WHITESPACE = 4
+    OBRACE = 5  # Opening brace
+    CBRACE = 6  # Closing brace
+    COMMA = 7
+    COLON = 8
+    SEMICOLON = 9
+
+
+RESERVED_PUNCTUATION = {
+    ":": TokenType.COLON,
+    ";": TokenType.SEMICOLON,
+    ",": TokenType.COMMA,
+    "(": TokenType.OBRACE,
+    ")": TokenType.CBRACE,
+}
 RP_PATTERN = re.compile('|'.join(re.escape(c) for c in RESERVED_PUNCTUATION))
 
 
@@ -64,9 +87,7 @@ def length_formatter(x):
 
 def check_string(n, type_):
     if RP_PATTERN.search(n):
-        raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION, type_))
-    if re.search(r'\s+', n):
-        raise ValueError('Whitespace may not appear in {}'.format(type_))
+        raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION.keys(), type_))
 
 
 class Node(object):
@@ -120,7 +141,7 @@ class Node(object):
         quoted = n and n.startswith(QUOTE) and n.endswith(QUOTE)
 
         if (not quoted) and self._auto_quote and \
-                any(char in n for char in RESERVED_PUNCTUATION + QUOTE):
+                any(char in n for char in ''.join(RESERVED_PUNCTUATION) + QUOTE):
             n = "{}{}{}".format(QUOTE, n.replace("'", "''"), QUOTE)
             quoted = True
 
@@ -463,7 +484,8 @@ class Node(object):
         self.visit(lambda n: setattr(n, 'length', None))
 
 
-def loads(s: str, strip_comments: bool = False, **kw) -> typing.List[Node]:
+def loads(s: typing.Union[str, typing.Iterable[str]], strip_comments: bool = False, **kw) \
+        -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted string.
 
@@ -499,7 +521,7 @@ def load(fp, strip_comments=False, **kw) -> typing.List[Node]:
     :return: List of Node objects.
     """
     kw['strip_comments'] = strip_comments
-    return loads(fp.read(), **kw)
+    return loads(itertools.chain.from_iterable(fp), **kw)
 
 
 def dump(tree: typing.Union[Node, typing.Iterable[Node]], fp):
@@ -534,109 +556,152 @@ class Token:
     """
     __slots__ = [
         'char',
-        'inquote',
-        'commentlevel',
         'level',
-        'regular',
-        'is_comma',
-        'is_colon',
-        'is_semicolon']
+        'type',
+    ]
     char: str  # The character, i.e. string of length 1.
-    inquote: bool  # Whether the character is inside a quoted string.
-    commentlevel: int  # Whether the character is inside a (nested) comment.
+    type: TokenType
     level: int  # How deep the character is nested in the tree.
-    regular: bool  # Whether the character is outside quotes or comments, i.e. may convey syntax.
-    is_comma: bool  # Whether the token is a "Newick-comma", i.e. separates sibling nodes.
-    is_colon: bool  # Whether the token is a "Newick-colon", i.e. separates label and length.
-    is_semicolon: bool  # Whether the token is a "Newick-semicolon", i.e. separates subtrees.
 
 
 class NewickString(list):
     """
     A list of tokens with methods to access newick constituents.
     """
-    def __init__(self, s: typing.Union[str, typing.List[Token]]):
-        list.__init__(self, s if not isinstance(s, str) else [])
+    def __init__(self, s: typing.Union[str, typing.Iterable, typing.List[Token]]):
+        list.__init__(self, s if isinstance(s, list) else [])
 
-        if isinstance(s, str):
-            # An unparsed string. We must convert it to a list of tokens.
-            i, inquote, commentlevel, doublequote, bracketlevel = -1, False, 0, False, 0
-            for i, c in enumerate(s):
-                if c == QUOTE and not inquote:  # Start of quoted string
-                    inquote = True
-                elif c == QUOTE and inquote and not doublequote:  # End of quoted string
-                    inquote = False
-                elif c in ESCAPE:
-                    if c == QUOTE and doublequote:  # The "escaped" single quote
-                        doublequote = False
-                    elif i < len(s) - 1 and s[i + 1] == QUOTE:
-                        # The escape character for the following single quote
-                        doublequote = True
+        if not isinstance(s, list):
+            if isinstance(s, str):
+                s = iter(s)
+            word, lookahead, level, inquote, incomment = [], None, 0, False, False
 
-                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
-                    if c == '[':
-                        commentlevel += 1
+            while 1:
+                try:
+                    c = lookahead or next(s)  # Read the data one character at a time.
+                    lookahead = None
 
-                if (not inquote) and commentlevel == 0:
-                    # Outside of quoted strings and comments we keep track of node nesting.
-                    # Note: The enclosing brackets have lower bracketlevel than the content.
-                    if c == ')':
-                        bracketlevel -= 1
-                        if bracketlevel < 0:
-                            raise ValueError('invalid brace nesting')
+                    # An unparsed string. We must convert it to a list of tokens.
+                    if c == QUOTE:  # Start of quoted string - we read to the end immediately.
+                        inquote, doublequote = True, False
+                        n = [c]  # Accumulate all characters within quotes.
+                        while 1:
+                            c = lookahead or next(s)
+                            lookahead = None
+                            while c not in ESCAPE:
+                                n.append(c)
+                                c = next(s)
 
-                iq = True if c == QUOTE else inquote
-                reg = (not iq) and (not bool(commentlevel))
-                self.append(Token(
-                    c, iq, commentlevel, bracketlevel, reg,
-                    reg and c == ',',
-                    reg and c == ':',
-                    reg and c == ';',
-                ))
+                            n.append(c)
+                            if doublequote and c == QUOTE:  # The escaped quote.
+                                doublequote = False
+                            else:
+                                try:  # Check if this is the escape character for a following quote:
+                                    lookahead = next(s)
+                                except StopIteration:
+                                    lookahead = None
+                                if lookahead == QUOTE:
+                                    doublequote = True  # Yep, mark it.
+                                else:  # End of quoted string
+                                    inquote = False
+                                    self.append(Token(''.join(n), TokenType.QWORD, level))
+                                    break
+                        continue
 
-                if not inquote:  # Outside of quoted strings we keep track of comment nesting.
+                    if c == '[':  # Start of a comment - we read to the end immediately.
+                        incomment, commentlevel = True, 1
+                        n = [c]  # Accumulate all characters in the comment.
+                        while 1:
+                            c = next(s)
+                            while c not in COMMENT:
+                                n.append(c)
+                                c = next(s)
+                            n.append(c)
+                            commentlevel += COMMENT[c]
+                            if commentlevel == 0:  # End of comment.
+                                incomment = False
+                                self.append(Token(''.join(n), TokenType.COMMENT, level))
+                                break
+                        continue
+
+                    if c in WHITESPACE:
+                        # Outside of quotes and comments, whitespace splits words.
+                        if word:
+                            self.append(Token(''.join(word), TokenType.WORD, level))
+                            word = []
+                        self.append(Token(c, TokenType.WHITESPACE, level))
+                        continue
+
                     if c == ']':
-                        commentlevel -= 1
-                        if commentlevel < 0:
-                            raise ValueError('invalid comment nesting')
+                        raise ValueError('invalid comment nesting')
 
-                if (not inquote) and commentlevel == 0:
-                    # Outside of quoted strings and comments we keep track of node nesting.
-                    if c == '(':
-                        bracketlevel += 1
+                    if c in RESERVED_PUNCTUATION:
+                        # Punctuation separates words:
+                        if word:
+                            self.append(Token(''.join(word), TokenType.WORD, level))
+                            word = []
+
+                        # Outside of quoted strings and comments we keep track of node nesting.
+                        # Note: The enclosing brackets have lower level than the content.
+                        if c == ')':
+                            level -= 1
+                            if level < 0:
+                                raise ValueError('invalid brace nesting')
+                            self.append(Token(c, TokenType.CBRACE, level))
+                            continue
+
+                        if c == '(':
+                            self.append(Token(c, TokenType.OBRACE, level))
+                            level += 1
+                            continue
+
+                        self.append(Token(c, RESERVED_PUNCTUATION[c], level))
+                        continue
+
+                    word.append(c)  # All other characters are just accumulated into a word.
+                except StopIteration:
+                    if inquote:
+                        raise ValueError('Unterminated quote!')
+                    if incomment:
+                        raise ValueError('Unterminated comment!')
+                    break
+            if word:
+                self.append(Token(''.join(word), TokenType.WORD, level))
+
         # The minimal bracket level of the list of tokens:
+        # This becomes important when splitting a NewickString into nodes by - essentially -
+        # subsetting the token list.
         self.minlevel = self[-1].level if self else 0
 
     def to_node(self) -> Node:
         # Parse label and length of the root node:
         tokens = list(
             itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
-        if tokens and tokens[-1].char == ')':
+        if tokens and tokens[-1].type == TokenType.CBRACE:
             tokens = tokens[:-1]
         tokens.reverse()
 
-        name, length, comment, comments = [], [], [], []
+        name, length, comments = [], [], []
         # We store the index of the colon and of the first comment:
         icolon, icomment = -1, -1
 
-        for i, t in enumerate(tokens):
-            if t.is_colon:
+        for i, t in enumerate(t for t in tokens if t.type != TokenType.WHITESPACE):
+            if t.type == TokenType.COLON:
                 icolon = i
             else:
-                if t.commentlevel:
+                if t.type == TokenType.COMMENT:
+                    comments.append(t.char)
                     if icomment == -1:
                         icomment = i
-                    comment.append(t.char)
-                    if t.commentlevel == 1 and t.char == ']':
-                        comments.append(''.join(comment))
-                        comment = []
                 else:
                     if icolon == -1:
                         name.append(t.char)
                     else:
                         length.append(t.char)
 
-        assert not comment
+        if len(name) > 1:
+            raise ValueError('Node names must not contain whitespace or punctuation')
+
         return Node.create(
             name=''.join(name).strip() or None,
             length=''.join(length) or None,
@@ -647,7 +712,7 @@ class NewickString(list):
     def iter_descendants(self) -> typing.Generator['NewickString', None, None]:
         tokens, comma = [], False
         for t in self:
-            if t.is_comma and t.level == self.minlevel + 1:
+            if t.type == TokenType.COMMA and t.level == self.minlevel + 1:
                 comma = True
                 yield NewickString(tokens)
                 tokens = []
@@ -661,20 +726,15 @@ class NewickString(list):
             if t:
                 if t[0].level != t[-1].level:
                     raise ValueError('different number of opening and closing braces')
-                if t[-1].commentlevel > 1 or \
-                        (t[-1].commentlevel == 1 and not t[-1].char == ']'):
-                    raise ValueError('invalid comment nesting')
-                if t[-1].inquote and not t[-1].char == QUOTE:
-                    raise ValueError('invalid quoting')
             return NewickString(t)
 
         tokens = []
         for t in self:
-            if t.is_semicolon:
+            if t.type == TokenType.SEMICOLON:
                 yield checked(tokens)
                 tokens = []
                 continue
-            if not (strip_comments and t.commentlevel):
+            if not (strip_comments and t.type == TokenType.COMMENT):
                 tokens.append(t)
 
         if tokens:
