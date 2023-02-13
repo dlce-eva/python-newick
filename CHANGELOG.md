@@ -2,7 +2,7 @@
 
 The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.7.0] - 2023-02-13
 
 Big performance improvement of parser by switching to accumulated tokens.
 
