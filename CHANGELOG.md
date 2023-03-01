@@ -4,6 +4,8 @@ The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.
 
 ## [Unreleased]
 
+Bugfix: Quote node names containing whitespace, if `auto_quote` is set.
+
 
 ## [v1.7.0] - 2023-02-13
 

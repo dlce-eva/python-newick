@@ -32,6 +32,7 @@ def test_Node_name():
     n.name = 'A'
     assert n.name == n.unquoted_name
     assert repr(n) == 'Node("A")'
+    assert Node("a b", auto_quote=True).name == "'a b'"
 
 
 def test_Node_length():
@@ -287,6 +288,17 @@ def test_Node_custom_length():
         ("(,(,,),);",
          {},
          "   /-\n   |  /-\n---+--+-\n   |  \\-\n   \\-"),
+        ("(((((A),B),(C,D))),E);",
+         {'strict': False},
+         """\
+                ┌── ──A
+            ┌───┤
+            │   └─B
+    ┌── ────┤
+    │       │   ┌─C
+────┤       └───┤
+    │           └─D
+    └─E""")
     ]
 )
 def test_Node_ascii_art(nwk, kw, art):
@@ -551,3 +563,9 @@ def test_mrbayes_tree(fixture_dir):
         'length_median': '1.32257600e-02',
         'length_95%HPD': '{1.25875600e-02,1.38462600e-02}',
     }
+
+
+def test_mesquite():
+    tree = loads('((1:15.3,4:15.3):4.5,(3:12.7,(2:8.2,5:8.2):4.5):7.1)[%selected = on ] [% ] [%  setBetweenBits = selected ];')[0];
+    assert {'1', '2', '3', '4', '5'} == {n.name for n in tree.walk() if n.name}
+

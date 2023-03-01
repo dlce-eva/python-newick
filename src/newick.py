@@ -141,7 +141,7 @@ class Node(object):
         quoted = n and n.startswith(QUOTE) and n.endswith(QUOTE)
 
         if (not quoted) and self._auto_quote and \
-                any(char in n for char in ''.join(RESERVED_PUNCTUATION) + QUOTE):
+                any(char in n for char in ''.join(RESERVED_PUNCTUATION) + QUOTE + WHITESPACE):
             n = "{}{}{}".format(QUOTE, n.replace("'", "''"), QUOTE)
             quoted = True
 
@@ -697,7 +697,6 @@ class NewickString(list):
                         name.append(t.char)
                     else:
                         length.append(t.char)
-
         if len(name) > 1:
             raise ValueError('Node names must not contain whitespace or punctuation')
 
