@@ -262,6 +262,13 @@ def test_rename():
     assert n.rename(auto_quote=True, **{'x y': "a b"}).newick == "('a b',b)z"
 
 
+def test_strip_comments():
+    n = loads("(a[c1]:2.0,b:[c2]1.0)c;")[0]
+    assert '[c1]' in n.newick and ('[c2]' in n.newick)
+    n.strip_comments()
+    assert n.newick == '(a:2.0,b:1.0)c'
+
+
 @pytest.mark.parametrize(
     'nwk,kw,art',
     [

@@ -364,6 +364,21 @@ class Node(object):
         self.visit(visitor)
         return self
 
+    def strip_comments(self) -> 'Node':
+        """
+        Remove comments from all nodes of a tree.
+
+        .. code-block:: python
+
+            >>> n = newick.loads("(a[comment],b)c;")[0]
+            >>> n.strip_comments().newick
+            '(a,b)c'
+        """
+        def strip(n):
+            n.comments = []
+        self.visit(strip)
+        return self
+
     def _postorder(self):
         stack = [self]
         descendant_map = {id(node): [n for n in node.descendants] for node in self.walk()}
