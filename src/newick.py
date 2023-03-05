@@ -10,7 +10,7 @@ import pathlib
 import itertools
 import dataclasses
 
-__version__ = "1.8.1"
+__version__ = "1.8.2.dev0"
 
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
