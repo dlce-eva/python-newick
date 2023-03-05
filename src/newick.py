@@ -10,7 +10,7 @@ import pathlib
 import itertools
 import dataclasses
 
-__version__ = "1.8.1.dev0"
+__version__ = "1.8.1"
 
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
@@ -155,7 +155,7 @@ class Node(object):
     @property
     def unquoted_name(self):
         n = self.name
-        if n.startswith(QUOTE) and n.endswith(QUOTE):
+        if n and n.startswith(QUOTE) and n.endswith(QUOTE):
             n = n[1:-1]
             for esc in ESCAPE:
                 n = n.replace(esc + QUOTE, QUOTE)

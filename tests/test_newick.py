@@ -24,6 +24,9 @@ def test_Node_name():
     with pytest.raises(ValueError):
         Node(name='A)')
 
+    n = Node()
+    assert n.unquoted_name is None
+
     n = Node("a'b", auto_quote=True)
     assert n.name == "'a''b'"
     assert n.unquoted_name == "a'b"

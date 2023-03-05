@@ -2,7 +2,9 @@
 
 The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.8.1] - 2023-03-05
+
+Bugfix: Make `unquoted_name` property work for nodes without names, too.
 
 
 ## [v1.8.0] - 2023-03-05
