@@ -86,7 +86,7 @@ def length_formatter(x):
 
 
 def check_string(n, type_):
-    if RP_PATTERN.search(n):
+    if RP_PATTERN.search(n) or any(c in n for c in WHITESPACE):
         raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION.keys(), type_))
 
 
@@ -343,6 +343,22 @@ class Node(object):
         for n in self.walk(**kw):
             if predicate(n):
                 visitor(n)
+
+    def rename(self, auto_quote: bool = False, **names: str) -> 'Node':
+        """
+        Rename nodes according to the mapping `names`.
+        """
+        if auto_quote:
+            names = {k: Node(v, auto_quote=True).name for k, v in names.items()}
+
+        def visitor(node):
+            if node.name in names:
+                node.name = names[node.name]
+            elif node.unquoted_name in names:
+                node.name = names[node.unquoted_name]
+
+        self.visit(visitor)
+        return self
 
     def _postorder(self):
         stack = [self]

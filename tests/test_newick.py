@@ -254,6 +254,14 @@ def test_Node_custom_length():
     assert weird_numbers_tree == root.newick
 
 
+def test_rename():
+    n = loads("('a 1',b)c;")[0]
+    with pytest.raises(ValueError):
+        n.rename(**{'a 1': 'x y'})
+    assert n.rename(**{'a 1': "'x y'", 'c': 'z'}).newick == "('x y',b)z"
+    assert n.rename(auto_quote=True, **{'x y': "a b"}).newick == "('a b',b)z"
+
+
 @pytest.mark.parametrize(
     'nwk,kw,art',
     [
