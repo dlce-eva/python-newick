@@ -2,6 +2,9 @@
 
 The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+
 ## [v1.8.0] - 2023-03-05
 
 - Added `rename` method - since that seems to be most common kind of node visitor.
