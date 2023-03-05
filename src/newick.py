@@ -347,6 +347,10 @@ class Node(object):
     def rename(self, auto_quote: bool = False, **names: str) -> 'Node':
         """
         Rename nodes according to the mapping `names`.
+
+        :param auto_quote: Flag signaling whether to quote names if necessary before renaming.
+        :param names: Mapping of old names to new names.
+        :return: The `Node` with updated names.
         """
         if auto_quote:
             names = {k: Node(v, auto_quote=True).name for k, v in names.items()}
