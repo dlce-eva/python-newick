@@ -203,10 +203,15 @@ class Node(object):
         colon_done = False
         label = self.name or ''
         if self.comments:
-            if self._length and self._colon_before_comment:
-                label += ':'
+            if self._length and len(self.comments) == 2 and not self._colon_before_comment:
+                # We assume that's the variant where one comment comes before and one after the ":".
+                label += '[{}]:[{}]'.format(*self.comments)
                 colon_done = True
-            label += '[{}]'.format('|'.join(self.comments))
+            else:
+                if self._length and self._colon_before_comment:
+                    label += ':'
+                    colon_done = True
+                label += '[{}]'.format('|'.join(self.comments))
         if self._length:
             if not colon_done:
                 label += ':'

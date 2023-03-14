@@ -4,6 +4,9 @@ The `newick` package adheres to [Semantic Versioning](http://semver.org/spec/v2.
 
 ## [Unreleased]
 
+Support round-tripping Newick with two annotations per node, one before and one after the
+length separator.
+
 
 ## [v1.8.1] - 2023-03-05
 
