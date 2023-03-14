@@ -128,14 +128,23 @@ can be accessed from the `dict` `Node.properties`:
 {'k1': 'v1', 'k2': 'v2'}
 ```
 
-Note that we still don't support **typed** node properties. I.e. values in `Node.properties` are
-always strings. Since typed properties tend to be specific to the application writing the newick,
-this level of support would require more knowledge of the creation context of the tree than can
-safely be inferred from the Newick string alone.
-```python
->>> newick.loads('(A,B)C[&range={1,5},support="100"];')[0].properties
-{'range': '{1,5}', 'support': '"100"'}
-```
+**Limitations:**
+
+- **Typed** node properties are not supported. I.e. values in `Node.properties` are
+  always strings. Since typed properties tend to be specific to the application writing the newick,
+  this level of support would require more knowledge of the creation context of the tree than can
+  safely be inferred from the Newick string alone.
+  ```python
+  >>> newick.loads('(A,B)C[&range={1,5},support="100"];')[0].properties
+  {'range': '{1,5}', 'support': '"100"'}
+  ```
+- Node annotations in comments are not completely round-trip-safe. In particular multiple comments
+  per node may be lumped together (using `|` as separator) when serializing a Newick node:
+  ```python
+  >>> newick.loads('(a,b)c[c1][c2]:3')[0].newick
+  '(a,b)c[c1|c2]:3'
+  ```
+
 
 ## Writing Newick
 
