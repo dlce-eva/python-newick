@@ -5,13 +5,13 @@ Releasing python-newick
 Clone dlce-eva/python-newick and switch to the master branch. Then:
 
 - Do platform test via tox:
-  ```
+  ```shell
   $ tox -r
   ```
   Make sure statement coverage is at 100%
 
 - Make sure flake8 passes::
-  ```
+  ```shell
   $ flake8 src
   ```
 
