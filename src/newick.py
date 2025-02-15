@@ -77,11 +77,11 @@ def _iter_properties(c):
             yield k, v
 
 
-def length_parser(x):
+def length_parser(x: str) -> float:
     return float(x or 0.0)
 
 
-def length_formatter(x):
+def length_formatter(x: float) -> str:
     return '%s' % x
 
 
@@ -90,7 +90,7 @@ def check_string(n, type_):
         raise ValueError('"{}" may not appear in {}'.format(RESERVED_PUNCTUATION.keys(), type_))
 
 
-class Node(object):
+class Node:
     """
     A Node may be a tree, a subtree or a leaf.
 
@@ -126,14 +126,14 @@ class Node(object):
         self.length = length
 
     @property
-    def properties(self):
+    def properties(self) -> dict:
         res = {}
         for comment in self.comments:
             res.update(list(_iter_properties(comment)))
         return res
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @name.setter
@@ -153,7 +153,7 @@ class Node(object):
         return 'Node("%s")' % self.name
 
     @property
-    def unquoted_name(self):
+    def unquoted_name(self) -> str:
         n = self.name
         if n and n.startswith(QUOTE) and n.endswith(QUOTE):
             n = n[1:-1]
@@ -184,7 +184,7 @@ class Node(object):
         return cls(**kw)
 
     @property
-    def descendants(self):
+    def descendants(self) -> typing.Iterable['Node']:
         return self._descendants
 
     @descendants.setter
