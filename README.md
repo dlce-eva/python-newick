@@ -1,7 +1,7 @@
 # python-newick
 
-[![Build Status](https://github.com/dlce-eva/python-newick/workflows/tests/badge.svg)](https://github.com/dlce-eva/python-newick/actions?query=workflow%3Atests)
-[![PyPI](https://badge.fury.io/py/newick.svg)](https://pypi.org/project/newick)
+> [!IMPORTANT]  
+> This project has been moved to https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick
 
 python package to read and write the 
 [Newick format](https://en.wikipedia.org/wiki/Newick_format).
